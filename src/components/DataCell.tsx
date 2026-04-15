@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface DataCellProps {
   label: string;
   value: string;

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 
 type Theme = 'light' | 'dark';
 type LayoutMode = '2-data' | '4-data';
@@ -19,15 +19,22 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('2-data');
   const [isRecording, setIsRecording] = useState<boolean>(false);
 
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('theme-dark');
+    } else {
+      document.documentElement.classList.remove('theme-dark');
+    }
+  }, [theme]);
+
   return (
     <SettingsContext.Provider value={{ theme, setTheme, layoutMode, setLayoutMode, isRecording, setIsRecording }}>
-      <div className={theme === 'dark' ? 'theme-dark' : ''}>
-        {children}
-      </div>
+      {children}
     </SettingsContext.Provider>
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useSettings = () => {
   const context = useContext(SettingsContext);
   if (!context) throw new Error('useSettings must be used within SettingsProvider');

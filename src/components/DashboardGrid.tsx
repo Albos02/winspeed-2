@@ -1,4 +1,3 @@
-import React from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { DataCell } from './DataCell';
 

@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
   --bg-color: #ffffff;
@@ -12,12 +10,13 @@
   --text-color: #ffffff;
 }
 
-body {
+html, body {
   background-color: var(--bg-color);
   color: var(--text-color);
   margin: 0;
   padding: 0;
   overflow: hidden;
   height: 100vh;
+  width: 100vw;
   font-family: sans-serif;
 }
