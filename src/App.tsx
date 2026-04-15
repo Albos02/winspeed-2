@@ -46,7 +46,7 @@ export default function App() {
           <span className={`font-black leading-none ${layout === '2s' ? 'text-[10rem]' : layout === '4s' ? 'text-[8rem]' : layout === '6s' ? 'text-[6rem]' : 'text-[5rem]'}`}>{value}</span>
         </div>
       ))}
-      <button className="absolute top-0 right-0 w-10 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current rounded-bl font-bold text-xs" onClick={() => setRecording(false)}>
+      <button className="absolute top-0 right-0 w-10 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current rounded-bl font-bold text-xs" onDoubleClick={() => setRecording(false)}>
         EXIT
       </button>
     </div>
