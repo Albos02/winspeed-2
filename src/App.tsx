@@ -19,7 +19,7 @@ export default function App() {
         <button className="p-4 border-2 border-current rounded" onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}>
           Theme: {theme.toUpperCase()}
         </button>
-        <button className="p-4 border-2 border-current rounded" onClick={() => setLayout(l => l === '2s' ? '4' : l === '4' ? '4s' : l === '4s' ? '6s' : l === '6s' ? '6' : '2s')}>
+        <button className="p-4 border-2 border-current rounded" onClick={() => setLayout(l => l === '2s' ? '4' : l === '4' ? '4s' : l === '4s' ? '6' : l === '6' ? '6s' : '2s')}>
           Layout: {layout}-data
         </button>
         <button className="p-4 border-2 border-current rounded font-bold" onClick={() => setRecording(true)}>
