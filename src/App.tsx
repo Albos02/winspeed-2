@@ -14,8 +14,8 @@ export default function App() {
 
   if (!recording) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen gap-6 p-4">
-        <h1 className="text-3xl font-bold">Settings</h1>
+      <div className="flex flex-col items-center justify-center h-screen gap-6 p-4 text-2xl">
+        <h1 className="text-4xl font-bold">Settings</h1>
         <button className="p-4 border-2 border-current rounded" onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}>
           Theme: {theme.toUpperCase()}
         </button>
@@ -46,7 +46,7 @@ export default function App() {
           <span className={`font-black leading-none ${layout === '2s' ? 'text-[10rem]' : layout === '4s' ? 'text-[8rem]' : layout === '6s' ? 'text-[6rem]' : 'text-[5rem]'}`}>{value}</span>
         </div>
       ))}
-      <button className="absolute top-0 right-0 w-12 h-12 border-2 border-current rounded-bl-lg font-bold text-xs" onClick={() => setRecording(false)}>
+      <button className="absolute top-0 right-0 w-10 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current rounded-bl font-bold text-xs" onClick={() => setRecording(false)}>
         EXIT
       </button>
     </div>
