@@ -33,7 +33,8 @@ export default function App() {
     ? [['Speed', '12.5'], ['Heading', '180°']]
     : layout === '4'
     ? [['Speed', '12.5'], ['VMG', '9.2'], ['Heading', '180°'], ['Wind', '45°']]
-    : [['Speed', '12.5'], ['VMG', '9.2'], ['Heading', '180°'], ['Wind', '45°'], ['Tacking', '2.1'], ['Polar', '95%']]
+    : [['Speed', '12.5'], ['VMG', '9.2'], ['Heading', '180°'], ['Wind', '45°'], ['Tacking', '2.1'], // speed during last tack
+    ['Polar', '95%']]
 
   return (
     <div className={`grid h-[calc(100vh-10px)] w-[calc(100vw-10px)] p-1 gap-1 ${layout === '2' ? 'grid-rows-2' : layout === '4' ? 'grid-cols-2 grid-rows-2' : 'grid-rows-6'}`}>
