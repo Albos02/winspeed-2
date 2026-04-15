@@ -43,7 +43,7 @@ export default function App() {
       {data.map(([label, value], i) => (
         <div key={i} className="flex flex-col items-center justify-center h-full w-full border-2 border-current p-1 overflow-hidden">
           <span className="text-[clamp(1rem,5vw,2rem)] font-bold uppercase tracking-wider">{label}</span>
-          <span className="text-[clamp(2rem,25vw,50vh)] font-black leading-none">{value}</span>
+          <span className={`font-black leading-none ${layout === '2s' ? 'text-[10rem]' : layout === '4s' ? 'text-[8rem]' : layout === '6s' ? 'text-[6rem]' : 'text-[5rem]'}`}>{value}</span>
         </div>
       ))}
       <button className="absolute top-0 right-0 w-12 h-12 border-2 border-current rounded-bl-lg font-bold text-xs" onClick={() => setRecording(false)}>
