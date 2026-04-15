@@ -5,7 +5,8 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/winspeed-2/',
+  base: './',
+  build: { outDir: '.' },
   plugins: [
     react(),
     tailwindcss(),
