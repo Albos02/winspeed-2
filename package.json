@@ -1,6 +1,7 @@
 {
   "name": "temp-app",
-  "private": true,
+  "homepage": "https://Albos02.github.io/winspeed-2/",
+  "private": false,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
