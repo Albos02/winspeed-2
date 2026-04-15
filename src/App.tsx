@@ -22,7 +22,7 @@ export default function App() {
         <button className="p-4 border-2 border-current rounded" onClick={() => setLayout(l => l === '2s' ? '4q' : l === '4q' ? '4s' : l === '4s' ? '6q' : l === '6q' ? '6s' : '2s')}>
           Layout: {layout}-data
         </button>
-        <button className="p-4 border-2 border-current rounded font-bold" onClick={() => setRecording(true)}>
+        <button className="bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border-2 border-current rounded-xl font-bold py-4 px-6" onClick={() => setRecording(true)}>
           START
         </button>
       </div>

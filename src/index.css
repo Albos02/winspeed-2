@@ -3,11 +3,15 @@
 :root {
   --bg-color: #ffffff;
   --text-color: #000000;
+  --inverted-bg-color: #000000;
+  --inverted-text-color: #ffffff;
 }
 
 .theme-dark {
   --bg-color: #000000;
   --text-color: #ffffff;
+  --inverted-bg-color: #ffffff;
+  --inverted-text-color: #000000;
 }
 
 html, body {
