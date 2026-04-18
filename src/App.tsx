@@ -10,11 +10,37 @@ export default function App() {
   const [layout, setLayout] = useState<Layout>('2s')
   const [fontSize, setFontSize] = useState<FontSize>(0)
   const [recording, setRecording] = useState(false)
+  const [currentSpeed, setCurrentSpeed] = useState<number | null>(null)
+  const [currentHeading, setCurrentHeading] = useState<number | null>(null)
 
   useEffect(() => {
     if (theme === 'dark') document.documentElement.classList.add('theme-dark')
     else document.documentElement.classList.remove('theme-dark')
   }, [theme])
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      console.error("Geolocation is not supported by your browser")
+      return
+    }
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        setCurrentSpeed(position.coords.speed)
+        setCurrentHeading(position.coords.heading)
+      },
+      (error) => {
+        console.error("Error getting geolocation:", error)
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0,
+      }
+    )
+
+    return () => navigator.geolocation.clearWatch(watchId)
+  }, [])
 
   if (!recording) {
     return (
@@ -39,13 +65,13 @@ export default function App() {
   const baseSize = layout === '2s' ? 10 : layout === '4s' ? 8 : layout === '6s' ? 6 : 5
 
   const data = layout === '2s' 
-    ? [['Speed', '12.5'], ['Heading', '180°']]
+    ? [['Speed', currentSpeed !== null ? (currentSpeed * 1.94384).toFixed(1) : '0.0'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°']]
     : layout === '4q' || layout === '4s'
-    ? [['Speed', '12.5'], ['VMG', '9.2'], ['Heading', '180°'], ['Wind', '45°']]
+    ? [['Speed', currentSpeed !== null ? (currentSpeed * 1.94384).toFixed(1) : '0.0'], ['VMG', '9.2'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', '45°']]
     : layout === '6q' || layout === '6s'
-    ? [['Speed', '12.5'], ['VMG', '9.2'], ['Heading', '180°'], ['Wind', '45°'], ['Tacking', '2.1'], // speed during last tack
+    ? [['Speed', currentSpeed !== null ? (currentSpeed * 1.94384).toFixed(1) : '0.0'], ['VMG', '9.2'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', '45°'], ['Tacking', '2.1'], // speed during last tack
     ['Polar', '95%']]
-    : [['Speed', '12.5'], ['Heading', '180°']]
+    : [['Speed', currentSpeed !== null ? (currentSpeed * 1.94384).toFixed(1) : '0.0'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°']]
 
   return (
     <div className={`relative grid h-screen w-screen p-1 gap-1 ${layout === '2s' ? 'grid-rows-2' : layout === '4q' ? 'grid-cols-2 grid-rows-2' : layout === '4s' ? 'grid-rows-4' : layout === '6q' ? 'grid-cols-2 grid-rows-3' : 'grid-rows-6'}`}>
