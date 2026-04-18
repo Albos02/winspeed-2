@@ -1,16 +1,20 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './index.css'
 
 type Theme = 'light' | 'dark'
 type Layout = '2s' | '4q' | '4s' | '6q' | '6s'
+type FontSize = -1 | 0 | 1
 
 export default function App() {
   const [theme, setTheme] = useState<Theme>('light')
   const [layout, setLayout] = useState<Layout>('2s')
+  const [fontSize, setFontSize] = useState<FontSize>(0)
   const [recording, setRecording] = useState(false)
 
-  if (theme === 'dark') document.documentElement.classList.add('theme-dark')
-  else document.documentElement.classList.remove('theme-dark')
+  useEffect(() => {
+    if (theme === 'dark') document.documentElement.classList.add('theme-dark')
+    else document.documentElement.classList.remove('theme-dark')
+  }, [theme])
 
   if (!recording) {
     return (
@@ -22,12 +26,17 @@ export default function App() {
         <button className="p-4 border-2 border-current rounded" onClick={() => setLayout(l => l === '2s' ? '4q' : l === '4q' ? '4s' : l === '4s' ? '6q' : l === '6q' ? '6s' : '2s')}>
           Layout: {layout}-data
         </button>
+        <button className="p-4 border-2 border-current rounded" onClick={() => setFontSize(f => f === -1 ? 0 : f === 0 ? 1 : -1)}>
+          Font Size: {fontSize === 0 ? 'Normal' : fontSize === 1 ? '+1' : '-1'}
+        </button>
         <button className="bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border-2 border-current rounded-xl font-bold py-4 px-6" onClick={() => setRecording(true)}>
           START
         </button>
       </div>
     )
   }
+
+  const baseSize = layout === '2s' ? 10 : layout === '4s' ? 8 : layout === '6s' ? 6 : 5
 
   const data = layout === '2s' 
     ? [['Speed', '12.5'], ['Heading', '180°']]
@@ -39,11 +48,11 @@ export default function App() {
     : [['Speed', '12.5'], ['Heading', '180°']]
 
   return (
-    <div className={`grid h-screen w-screen p-1 gap-1 ${layout === '2s' ? 'grid-rows-2' : layout === '4q' ? 'grid-cols-2 grid-rows-2' : layout === '4s' ? 'grid-rows-4' : layout === '6q' ? 'grid-cols-2 grid-rows-3' : 'grid-rows-6'}`}>
+    <div className={`relative grid h-screen w-screen p-1 gap-1 ${layout === '2s' ? 'grid-rows-2' : layout === '4q' ? 'grid-cols-2 grid-rows-2' : layout === '4s' ? 'grid-rows-4' : layout === '6q' ? 'grid-cols-2 grid-rows-3' : 'grid-rows-6'}`}>
       {data.map(([label, value], i) => (
         <div key={i} className="flex flex-col items-center justify-center h-full w-full border-2 border-current p-1 overflow-hidden">
           <span className="text-[clamp(1rem,5vw,2rem)] font-bold uppercase tracking-wider">{label}</span>
-          <span className={`font-black leading-none ${layout === '2s' ? 'text-[10rem]' : layout === '4s' ? 'text-[8rem]' : layout === '6s' ? 'text-[6rem]' : 'text-[5rem]'}`}>{value}</span>
+          <span className="font-black leading-none" style={{ fontSize: `calc(${baseSize + fontSize * 0.5}rem)` }}>{value}</span>
         </div>
       ))}
       <button className="absolute top-0 right-0 w-10 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current rounded-bl font-bold text-xs" onDoubleClick={() => setRecording(false)}>
