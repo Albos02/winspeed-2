@@ -3,7 +3,7 @@ import './index.css'
 
 type Theme = 'light' | 'dark'
 type Layout = '2s' | '4q' | '4s' | '6q' | '6s'
-type FontSize = -1 | 0 | 1
+type FontSize = -5 | -2 | -1 | 0 | 1 | 2 | 5
 
 export default function App() {
   const [theme, setTheme] = useState<Theme>('light')
@@ -52,8 +52,8 @@ export default function App() {
         <button className="p-4 border-2 border-current rounded" onClick={() => setLayout(l => l === '2s' ? '4q' : l === '4q' ? '4s' : l === '4s' ? '6q' : l === '6q' ? '6s' : '2s')}>
           Layout: {layout}-data
         </button>
-        <button className="p-4 border-2 border-current rounded" onClick={() => setFontSize(f => f === -1 ? 0 : f === 0 ? 1 : -1)}>
-          Font Size: {fontSize === 0 ? 'Normal' : fontSize === 1 ? '+1' : '-1'}
+        <button className="p-4 border-2 border-current rounded" onClick={() => setFontSize(f => f === -5 ? -2 : f === -2 ? -1 : f === -1 ? 0 : f === 0 ? 1 : f === 1 ? 2 : f === 2 ? 5 : -5)}>
+          Font Size: {fontSize === 0 ? 'Normal' : (fontSize > 0 ? '+' : '') + fontSize}
         </button>
         <button className="bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border-2 border-current rounded-xl font-bold py-4 px-6" onClick={() => setRecording(true)}>
           START
