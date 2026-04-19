@@ -4,6 +4,7 @@ import './index.css'
 type Theme = 'light' | 'dark'
 type Layout = '2s' | '4q' | '4s' | '6q' | '6s'
 type FontSize = -5 | -2 | -1 | 0 | 1 | 2 | 5
+type Unit = 'knots' | 'kph' | 'mph'
 
 export default function App() {
   const [theme, setTheme] = useState<Theme>('light')
@@ -12,6 +13,7 @@ export default function App() {
   const [recording, setRecording] = useState(false)
   const [currentSpeed, setCurrentSpeed] = useState<number | null>(null)
   const [currentHeading, setCurrentHeading] = useState<number | null>(null)
+  const [unit, setUnit] = useState<Unit>('knots')
 
   useEffect(() => {
     if (theme === 'dark') document.documentElement.classList.add('theme-dark')
@@ -54,6 +56,9 @@ export default function App() {
         </button>
         <button className="p-4 border-2 border-current rounded" onClick={() => setFontSize(f => f === -5 ? -2 : f === -2 ? -1 : f === -1 ? 0 : f === 0 ? 1 : f === 1 ? 2 : f === 2 ? 5 : -5)}>
           Font Size: {fontSize === 0 ? 'Normal' : (fontSize > 0 ? '+' : '') + fontSize}
+        </button>
+        <button className="p-4 border-2 border-current rounded" onClick={() => setUnit(u => u === 'knots' ? 'kph' : u === 'kph' ? 'mph' : 'knots')}>
+          Unit: {unit.toUpperCase()}
         </button>
         <button className="bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border-2 border-current rounded-xl font-bold py-4 px-6" onClick={() => setRecording(true)}>
           START
