@@ -14,6 +14,20 @@ export default function App() {
   const [currentSpeed, setCurrentSpeed] = useState<number | null>(null)
   const [currentHeading, setCurrentHeading] = useState<number | null>(null)
   const [unit, setUnit] = useState<Unit>('knots')
+  const [wakeLock, setWakeLock] = useState<WakeLockSentinel | null>(null)
+
+  const convertSpeed = (speedInMps: number, targetUnit: Unit) => {
+    switch (targetUnit) {
+      case 'knots':
+        return speedInMps * 1.94384
+      case 'kph':
+        return speedInMps * 3.6
+      case 'mph':
+        return speedInMps * 2.23694
+      default:
+        return speedInMps * 1.94384 // Default to knots
+    }
+  }
 
   useEffect(() => {
     if (theme === 'dark') document.documentElement.classList.add('theme-dark')
@@ -44,6 +58,40 @@ export default function App() {
     return () => navigator.geolocation.clearWatch(watchId)
   }, [])
 
+  useEffect(() => {
+    const requestWakeLock = async () => {
+      try {
+        const sentinel = await navigator.wakeLock.request('screen')
+        setWakeLock(sentinel)
+        sentinel.onrelease = () => {
+          setWakeLock(null)
+        }
+      } catch (err: any) {
+        console.error(`${err.name}, ${err.message}`)
+      }
+    }
+
+    const handleVisibilityChange = () => {
+      if (wakeLock !== null && document.visibilityState === 'visible') {
+        requestWakeLock()
+      }
+    }
+
+    if (recording) {
+      requestWakeLock()
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+    } else if (wakeLock) {
+      wakeLock.release()
+    }
+
+    return () => {
+      if (wakeLock) {
+        wakeLock.release()
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [recording, wakeLock])
+
   if (!recording) {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-6 p-4 text-2xl">
@@ -70,13 +118,13 @@ export default function App() {
   const baseSize = layout === '2s' ? 10 : layout === '4s' ? 8 : layout === '6s' ? 6 : 5
 
   const data = layout === '2s' 
-    ? [['Speed', currentSpeed !== null ? (currentSpeed * 1.94384).toFixed(1) : '0.0'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°']]
+    ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°']]
     : layout === '4q' || layout === '4s'
-    ? [['Speed', currentSpeed !== null ? (currentSpeed * 1.94384).toFixed(1) : '0.0'], ['VMG', '9.2'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', '45°']]
+    ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['VMG', '9.2'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', '45°']]
     : layout === '6q' || layout === '6s'
-    ? [['Speed', currentSpeed !== null ? (currentSpeed * 1.94384).toFixed(1) : '0.0'], ['VMG', '9.2'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', '45°'], ['Tacking', '2.1'], // speed during last tack
+    ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['VMG', '9.2'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', '45°'], ['Tacking', '2.1'], // speed during last tack
     ['Polar', '95%']]
-    : [['Speed', currentSpeed !== null ? (currentSpeed * 1.94384).toFixed(1) : '0.0'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°']]
+    : [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°']]
 
   return (
     <div className={`relative grid h-screen w-screen p-1 gap-1 ${layout === '2s' ? 'grid-rows-2' : layout === '4q' ? 'grid-cols-2 grid-rows-2' : layout === '4s' ? 'grid-rows-4' : layout === '6q' ? 'grid-cols-2 grid-rows-3' : 'grid-rows-6'}`}>
