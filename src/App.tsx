@@ -53,6 +53,12 @@ function calculateWindDirection(polar: Map<number, PolarEntry>): number | null {
   return bestAxis.score > 30 ? bestAxis.wind : null
 }
 
+function calculateVmg(speed: number, heading: number, windDirection: number): number {
+  const angle = Math.abs(heading - windDirection)
+  const twa = Math.min(angle, 360 - angle)
+  return speed * Math.cos(twa * Math.PI / 180)
+}
+
 export default function App() {
   const [theme, setTheme] = useState<Theme>('light')
   const [layout, setLayout] = useState<Layout>('2s')
@@ -222,12 +228,16 @@ export default function App() {
 
   const baseSize = layout === '2s' ? 10 : layout === '4s' ? 8 : layout === '6s' ? 6 : 5
 
+  const vmg = currentSpeed !== null && currentHeading !== null && windDirection !== null
+    ? convertSpeed(calculateVmg(currentSpeed, currentHeading, windDirection), unit).toFixed(1)
+    : '0.0'
+
   const data = layout === '2s' 
     ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°']]
     : layout === '4q' || layout === '4s'
-    ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['VMG', '9.2'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', windDirection !== null ? `${windDirection.toFixed(0)}°` : '---']]
+    ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['VMG', vmg], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', windDirection !== null ? `${windDirection.toFixed(0)}°` : '---']]
     : layout === '6q' || layout === '6s'
-    ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['VMG', '9.2'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', windDirection !== null ? `${windDirection.toFixed(0)}°` : '---'], ['Tacking', '2.1'], // speed during last tack
+    ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['VMG', vmg], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', windDirection !== null ? `${windDirection.toFixed(0)}°` : '---'], ['Tacking', '2.1'], // speed during last tack
     ['Polar', '95%']]
     : [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°']]
 
