@@ -150,13 +150,13 @@ export default function App() {
       setCurrentTilt(gamma)
     }
 
-    if (DeviceOrientationEvent.requestPermission) {
-      DeviceOrientationEvent.requestPermission()
-        .then(permission => {
-          if (permission === 'granted') {
-            window.addEventListener('deviceorientation', handleOrientation)
-          }
-        })
+    const reqPerm = (DeviceOrientationEvent as any).requestPermission
+    if (reqPerm) {
+      reqPerm().then((permission: string) => {
+        if (permission === 'granted') {
+          window.addEventListener('deviceorientation', handleOrientation)
+        }
+      })
     } else {
       window.addEventListener('deviceorientation', handleOrientation)
     }
