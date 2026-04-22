@@ -22,33 +22,35 @@ function normalizeHeading(h: number): number {
 function calculateWindDirection(polar: Map<number, PolarEntry>): number | null {
   if (polar.size < 10) return null
 
-  const headings = Array.from(polar.keys()).sort((a, b) => a - b)
-  const bestAxis: { axis: number; score: number } = { axis: 0, score: 0 }
+  const headings = Array.from(polar.keys())
+  const bestAxis: { wind: number; score: number } = { wind: 0, score: 0 }
 
   for (const h1 of headings) {
     const entry1 = polar.get(h1)
-    if (!entry1) continue
+    if (!entry1 || entry1.tiltDirection === 'center') continue
 
     const opposite1 = (h1 + 180) % 360
     const entry2 = polar.get(opposite1)
-    if (!entry2) continue
+    if (!entry2 || entry2.tiltDirection === 'center') continue
 
     const speedDiff = Math.abs(entry1.maxSpeed - entry2.maxSpeed)
     const tiltOpposite = (entry1.tiltDirection === 'left' && entry2.tiltDirection === 'right') ||
                         (entry1.tiltDirection === 'right' && entry2.tiltDirection === 'left')
 
+    if (!tiltOpposite) continue
+
     let score = 0
-    if (tiltOpposite) score += 50
-    score += Math.max(0, 30 - speedDiff * 2)
-    score += (entry1.maxSpeed + entry2.maxSpeed) / 4
+    score += Math.max(0, 50 - speedDiff * 5) // High penalty for speed difference
+    score += Math.min(20, (entry1.maxSpeed + entry2.maxSpeed) * 2) // Cap speed contribution
 
     if (score > bestAxis.score) {
-      bestAxis.axis = (h1 + 180) % 360
+      // If h1 is right tilt, wind is h1 - 90. If left, h1 + 90.
+      bestAxis.wind = normalizeHeading(entry1.tiltDirection === 'right' ? h1 - 90 : h1 + 90)
       bestAxis.score = score
     }
   }
 
-  return bestAxis.score > 20 ? bestAxis.axis : null
+  return bestAxis.score > 30 ? bestAxis.wind : null
 }
 
 export default function App() {
@@ -58,7 +60,7 @@ export default function App() {
   const [recording, setRecording] = useState(false)
   const [currentSpeed, setCurrentSpeed] = useState<number | null>(null)
   const [currentHeading, setCurrentHeading] = useState<number | null>(null)
-  const [currentTilt, setCurrentTilt] = useState<number>(0)
+  const currentTiltRef = useRef<number>(0)
   const [windDirection, setWindDirection] = useState<number | null>(null)
   const [unit, setUnit] = useState<Unit>('knots')
   const [wakeLock, setWakeLock] = useState<WakeLockSentinel | null>(null)
@@ -75,6 +77,23 @@ export default function App() {
       default:
         return speedInMps * 1.94384 // Default to knots
     }
+  }
+
+  const handleStart = async () => {
+    const reqPerm = (DeviceOrientationEvent as any).requestPermission
+    if (reqPerm) {
+      try {
+        const permission = await reqPerm()
+        if (permission !== 'granted') {
+          alert("Orientation permission required for wind calculation")
+          return
+        }
+      } catch (err) {
+        console.error(err)
+        return
+      }
+    }
+    setRecording(true)
   }
 
   useEffect(() => {
@@ -146,45 +165,37 @@ export default function App() {
     if (!recording) return
 
     const handleOrientation = (e: DeviceOrientationEvent) => {
-      const gamma = e.gamma ?? 0
-      setCurrentTilt(gamma)
+      currentTiltRef.current = e.gamma ?? 0
     }
 
-    const reqPerm = (DeviceOrientationEvent as any).requestPermission
-    if (reqPerm) {
-      reqPerm().then((permission: string) => {
-        if (permission === 'granted') {
-          window.addEventListener('deviceorientation', handleOrientation)
-        }
-      })
-    } else {
-      window.addEventListener('deviceorientation', handleOrientation)
-    }
+    window.addEventListener('deviceorientation', handleOrientation)
+    
+    // Periodic calculation and recording
+    const interval = setInterval(() => {
+      if (currentSpeed === null || currentHeading === null || currentSpeed < 1) return
+
+      const heading = normalizeHeading(currentHeading)
+      const tilt = currentTiltRef.current
+      const tiltDirection: TiltDirection = tilt < -5 ? 'left' : tilt > 5 ? 'right' : 'center'
+
+      const existing = polarRef.current.get(heading)
+      if (!existing || currentSpeed > existing.maxSpeed) {
+        polarRef.current.set(heading, {
+          maxSpeed: currentSpeed,
+          tiltDirection,
+          tiltAngle: Math.abs(tilt)
+        })
+      }
+
+      const wind = calculateWindDirection(polarRef.current)
+      setWindDirection(wind)
+    }, 1000)
 
     return () => {
       window.removeEventListener('deviceorientation', handleOrientation)
+      clearInterval(interval)
     }
-  }, [recording])
-
-  useEffect(() => {
-    if (!recording || currentSpeed === null || currentHeading === null || currentSpeed < 1) return
-
-    const heading = normalizeHeading(currentHeading)
-    const existing = polarRef.current.get(heading)
-
-    const tiltDirection: TiltDirection = currentTilt < -5 ? 'left' : currentTilt > 5 ? 'right' : 'center'
-
-    if (!existing || currentSpeed > existing.maxSpeed) {
-      polarRef.current.set(heading, {
-        maxSpeed: currentSpeed,
-        tiltDirection,
-        tiltAngle: Math.abs(currentTilt)
-      })
-    }
-
-    const wind = calculateWindDirection(polarRef.current)
-    setWindDirection(wind)
-  }, [recording, currentSpeed, currentHeading, currentTilt])
+  }, [recording, currentSpeed, currentHeading])
 
   if (!recording) {
     return (
@@ -202,7 +213,7 @@ export default function App() {
         <button className="p-4 border-2 border-current rounded" onClick={() => setUnit(u => u === 'knots' ? 'kph' : u === 'kph' ? 'mph' : 'knots')}>
           Unit: {unit.toUpperCase()}
         </button>
-        <button className="bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border-2 border-current rounded-xl font-bold py-4 px-6" onClick={() => setRecording(true)}>
+        <button className="bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border-2 border-current rounded-xl font-bold py-4 px-6" onClick={handleStart}>
           START
         </button>
       </div>
