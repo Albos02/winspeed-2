@@ -1,10 +1,55 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './index.css'
 
 type Theme = 'light' | 'dark'
 type Layout = '2s' | '4q' | '4s' | '6q' | '6s'
 type FontSize = -5 | -2 | -1 | 0 | 1 | 2 | 5
 type Unit = 'knots' | 'kph' | 'mph'
+type TiltDirection = 'left' | 'right' | 'center'
+
+interface PolarEntry {
+  maxSpeed: number
+  tiltDirection: TiltDirection
+  tiltAngle: number
+}
+
+function normalizeHeading(h: number): number {
+  h = h % 360
+  if (h < 0) h += 360
+  return Math.round(h)
+}
+
+function calculateWindDirection(polar: Map<number, PolarEntry>): number | null {
+  if (polar.size < 10) return null
+
+  const headings = Array.from(polar.keys()).sort((a, b) => a - b)
+  const bestAxis: { axis: number; score: number } = { axis: 0, score: 0 }
+
+  for (const h1 of headings) {
+    const entry1 = polar.get(h1)
+    if (!entry1) continue
+
+    const opposite1 = (h1 + 180) % 360
+    const entry2 = polar.get(opposite1)
+    if (!entry2) continue
+
+    const speedDiff = Math.abs(entry1.maxSpeed - entry2.maxSpeed)
+    const tiltOpposite = (entry1.tiltDirection === 'left' && entry2.tiltDirection === 'right') ||
+                        (entry1.tiltDirection === 'right' && entry2.tiltDirection === 'left')
+
+    let score = 0
+    if (tiltOpposite) score += 50
+    score += Math.max(0, 30 - speedDiff * 2)
+    score += (entry1.maxSpeed + entry2.maxSpeed) / 4
+
+    if (score > bestAxis.score) {
+      bestAxis.axis = (h1 + 180) % 360
+      bestAxis.score = score
+    }
+  }
+
+  return bestAxis.score > 20 ? bestAxis.axis : null
+}
 
 export default function App() {
   const [theme, setTheme] = useState<Theme>('light')
@@ -13,8 +58,11 @@ export default function App() {
   const [recording, setRecording] = useState(false)
   const [currentSpeed, setCurrentSpeed] = useState<number | null>(null)
   const [currentHeading, setCurrentHeading] = useState<number | null>(null)
+  const [currentTilt, setCurrentTilt] = useState<number>(0)
+  const [windDirection, setWindDirection] = useState<number | null>(null)
   const [unit, setUnit] = useState<Unit>('knots')
   const [wakeLock, setWakeLock] = useState<WakeLockSentinel | null>(null)
+  const polarRef = useRef<Map<number, PolarEntry>>(new Map())
 
   const convertSpeed = (speedInMps: number, targetUnit: Unit) => {
     switch (targetUnit) {
@@ -78,6 +126,8 @@ export default function App() {
     }
 
     if (recording) {
+      polarRef.current = new Map()
+      setWindDirection(null)
       requestWakeLock()
       document.addEventListener('visibilitychange', handleVisibilityChange)
     } else if (wakeLock) {
@@ -91,6 +141,50 @@ export default function App() {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [recording, wakeLock])
+
+  useEffect(() => {
+    if (!recording) return
+
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      const gamma = e.gamma ?? 0
+      setCurrentTilt(gamma)
+    }
+
+    if (DeviceOrientationEvent.requestPermission) {
+      DeviceOrientationEvent.requestPermission()
+        .then(permission => {
+          if (permission === 'granted') {
+            window.addEventListener('deviceorientation', handleOrientation)
+          }
+        })
+    } else {
+      window.addEventListener('deviceorientation', handleOrientation)
+    }
+
+    return () => {
+      window.removeEventListener('deviceorientation', handleOrientation)
+    }
+  }, [recording])
+
+  useEffect(() => {
+    if (!recording || currentSpeed === null || currentHeading === null || currentSpeed < 1) return
+
+    const heading = normalizeHeading(currentHeading)
+    const existing = polarRef.current.get(heading)
+
+    const tiltDirection: TiltDirection = currentTilt < -5 ? 'left' : currentTilt > 5 ? 'right' : 'center'
+
+    if (!existing || currentSpeed > existing.maxSpeed) {
+      polarRef.current.set(heading, {
+        maxSpeed: currentSpeed,
+        tiltDirection,
+        tiltAngle: Math.abs(currentTilt)
+      })
+    }
+
+    const wind = calculateWindDirection(polarRef.current)
+    setWindDirection(wind)
+  }, [recording, currentSpeed, currentHeading, currentTilt])
 
   if (!recording) {
     return (
@@ -120,9 +214,9 @@ export default function App() {
   const data = layout === '2s' 
     ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°']]
     : layout === '4q' || layout === '4s'
-    ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['VMG', '9.2'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', '45°']]
+    ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['VMG', '9.2'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', windDirection !== null ? `${windDirection.toFixed(0)}°` : '---']]
     : layout === '6q' || layout === '6s'
-    ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['VMG', '9.2'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', '45°'], ['Tacking', '2.1'], // speed during last tack
+    ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['VMG', '9.2'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', windDirection !== null ? `${windDirection.toFixed(0)}°` : '---'], ['Tacking', '2.1'], // speed during last tack
     ['Polar', '95%']]
     : [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°']]
 
