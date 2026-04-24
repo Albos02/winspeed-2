@@ -290,8 +290,8 @@ export default function App() {
       {DEBUG && (
         <div className="absolute bottom-0 left-0 right-0 flex justify-between items-end p-1 text-xs bg-[var(--bg-color)]/80">
           <div className="font-mono">
-            <div>GPS: {rawGpsData.speed?.toFixed(1)}m/s {rawGpsData.heading?.toFixed(0)}° acc{rawGpsData.accuracy?.toFixed(0)}</div>
-            <div>Ori: α{rawOrientationData.alpha?.toFixed(0)} β{rawOrientationData.beta?.toFixed(0)} γ{rawOrientationData.gamma?.toFixed(0)}</div>
+            <div>GPS: {rawGpsData.speed?.toFixed(1) ?? 'N/A'}m/s {rawGpsData.heading?.toFixed(0) ?? 'N/A'}° acc{rawGpsData.accuracy?.toFixed(0) ?? 'N/A'}</div>
+            <div>Ori: {rawOrientationData.alpha !== null ? `α${rawOrientationData.alpha?.toFixed(0)} β${rawOrientationData.beta?.toFixed(0)} γ${rawOrientationData.gamma?.toFixed(0)}` : 'no sensor'}</div>
           </div>
           <svg width={60} height={60} viewBox="0 0 60 60" className="border border-current rounded-full">
             <circle cx={30} cy={30} r={28} fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.3" />
