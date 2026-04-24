@@ -262,6 +262,20 @@ export default function App() {
     ['Polar', '95%']]
     : [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°']]
 
+  const polarEntries = Array.from(polarRef.current.entries()).map(([heading, entry]) => {
+    const angle = (heading - 90) * Math.PI / 180
+    const speed = convertSpeed(entry.maxSpeed, unit)
+    const maxSpeed = Math.max(15, ...Array.from(polarRef.current.values()).map(e => convertSpeed(e.maxSpeed, unit)))
+    const r = (speed / maxSpeed)
+    return {
+      rx: r * Math.cos(angle),
+      ry: r * Math.sin(angle),
+      speed,
+      heading,
+      tiltDirection: entry.tiltDirection
+    }
+  })
+
   return (
     <div className={`relative grid h-screen w-screen p-1 gap-1 ${layout === '2s' ? 'grid-rows-2' : layout === '4q' ? 'grid-cols-2 grid-rows-2' : layout === '4s' ? 'grid-rows-4' : layout === '6q' ? 'grid-cols-2 grid-rows-3' : 'grid-rows-6'}`}>
       {data.map(([label, value], i) => (
@@ -273,28 +287,28 @@ export default function App() {
       <button className="absolute top-0 right-0 w-10 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current rounded-bl font-bold text-xs" onDoubleClick={() => setRecording(false)}>
         EXIT
       </button>
+      {DEBUG && (
+        <div className="absolute bottom-0 left-0 right-0 flex justify-between items-end p-1 text-xs bg-[var(--bg-color)]/80">
+          <div className="font-mono">
+            <div>GPS: {rawGpsData.speed?.toFixed(1)}m/s {rawGpsData.heading?.toFixed(0)}° acc{rawGpsData.accuracy?.toFixed(0)}</div>
+            <div>Ori: α{rawOrientationData.alpha?.toFixed(0)} β{rawOrientationData.beta?.toFixed(0)} γ{rawOrientationData.gamma?.toFixed(0)}</div>
+          </div>
+          <svg width={60} height={60} viewBox="0 0 60 60" className="border border-current rounded-full">
+            <circle cx={30} cy={30} r={28} fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.3" />
+            {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map(deg => {
+              const angle = (deg - 90) * Math.PI / 180
+              return <line key={deg} x1={30} y1={30} x2={30 + 28 * Math.cos(angle)} y2={30 + 28 * Math.sin(angle)} stroke="currentColor" strokeWidth="0.5" opacity="0.2" />
+            })}
+            {polarEntries.map((entry, i) => (
+              <circle key={i} cx={30 + entry.rx * 28} cy={30 + entry.ry * 28} r={2} fill={entry.tiltDirection === 'left' ? '#ef4444' : entry.tiltDirection === 'right' ? '#3b82f6' : '#22c55e'} />
+            ))}
+          </svg>
+        </div>
+      )}
     </div>
   )
 
   if (DEBUG && debugMode) {
-    const polarSize = 250
-    const center = polarSize / 2
-    const maxRadius = polarSize / 2 - 20
-    const maxSpeed = Math.max(15, ...Array.from(polarRef.current.values()).map(e => convertSpeed(e.maxSpeed, unit)))
-
-    const polarEntries = Array.from(polarRef.current.entries()).map(([heading, entry]) => {
-      const angle = (heading - 90) * Math.PI / 180
-      const radius = (convertSpeed(entry.maxSpeed, unit) / maxSpeed) * maxRadius
-      return {
-        x: center + radius * Math.cos(angle),
-        y: center + radius * Math.sin(angle),
-        speed: convertSpeed(entry.maxSpeed, unit).toFixed(1),
-        heading,
-        tiltDirection: entry.tiltDirection,
-        tiltAngle: entry.tiltAngle
-      }
-    })
-
     return (
       <div className="flex flex-col h-screen w-screen p-2 gap-2">
         <div className="flex justify-between items-center">
@@ -329,58 +343,23 @@ export default function App() {
             <span className="text-green-500">Center</span>
             <span className="text-blue-500">Right</span>
           </div>
-          <svg width={polarSize} height={polarSize} className="border border-current rounded-full">
-            <circle cx={center} cy={center} r={maxRadius} fill="none" stroke="currentColor" strokeWidth="1" />
-            {[0, 90, 180, 270].map(deg => {
-              const angle = (deg - 90) * Math.PI / 180
-              return (
-                <line
-                  key={deg}
-                  x1={center}
-                  y1={center}
-                  x2={center + maxRadius * Math.cos(angle)}
-                  y2={center + maxRadius * Math.sin(angle)}
-                  stroke="currentColor"
-                  strokeWidth="1"
-                  opacity="0.3"
-                />
-              )
-            })}
-            {[0, 5, 10, 15].map(speed => (
-              <circle
-                key={speed}
-                cx={center}
-                cy={center}
-                r={(speed / maxSpeed) * maxRadius}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1"
-                opacity="0.3"
-              />
-            ))}
+          <svg width={250} height={250} className="border border-current rounded-full">
+            <circle cx={125} cy={125} r={105} fill="none" stroke="currentColor" strokeWidth="1" />
+            <line x1={125} y1={20} x2={125} y2={230} stroke="currentColor" strokeWidth="1" opacity="0.3" />
+            <line x1={20} y1={125} x2={230} y2={125} stroke="currentColor" strokeWidth="1" opacity="0.3" />
+            <circle cx={125} cy={125} r={52} fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+            <circle cx={125} cy={125} r={105} fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3" />
             {polarEntries.map((entry, i) => (
               <circle
                 key={i}
-                cx={entry.x}
-                cy={entry.y}
+                cx={125 + entry.rx * 105}
+                cy={125 + entry.ry * 105}
                 r={6}
                 fill={entry.tiltDirection === 'left' ? '#ef4444' : entry.tiltDirection === 'right' ? '#3b82f6' : '#22c55e'}
               />
             ))}
-            {polarEntries.map((entry, i) => (
-              <text
-                key={`t-${i}`}
-                x={entry.x}
-                y={entry.y - 8}
-                fontSize="8"
-                textAnchor="middle"
-                fill="currentColor"
-              >
-                {entry.heading}°
-              </text>
-            ))}
           </svg>
-          <div className="text-xs mt-1">Entries: {polarEntries.length} | Max Speed: {maxSpeed.toFixed(1)} {unit}</div>
+          <div className="text-xs mt-1">Entries: {polarEntries.length}</div>
         </div>
       </div>
     )
