@@ -1,11 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 import './index.css'
 
+// DEBUG
+const DEBUG = true
+
 type Theme = 'light' | 'dark'
 type Layout = '2s' | '4q' | '4s' | '6q' | '6s'
 type FontSize = -5 | -2 | -1 | 0 | 1 | 2 | 5
 type Unit = 'knots' | 'kph' | 'mph'
 type TiltDirection = 'left' | 'right' | 'center'
+type AppMode = 'normal' | 'debug'
 
 interface PolarEntry {
   maxSpeed: number
@@ -64,6 +68,9 @@ export default function App() {
   const [layout, setLayout] = useState<Layout>('2s')
   const [fontSize, setFontSize] = useState<FontSize>(0)
   const [recording, setRecording] = useState(false)
+  const [debugMode, setDebugMode] = useState(false)
+  const [rawGpsData, setRawGpsData] = useState<{ speed: number | null; heading: number | null; accuracy: number | null }>({ speed: null, heading: null, accuracy: null })
+  const [rawOrientationData, setRawOrientationData] = useState<{ alpha: number | null; beta: number | null; gamma: number | null }>({ alpha: null, beta: null, gamma: null })
   const [currentSpeed, setCurrentSpeed] = useState<number | null>(null)
   const [currentHeading, setCurrentHeading] = useState<number | null>(null)
   const currentTiltRef = useRef<number>(0)
@@ -117,6 +124,11 @@ export default function App() {
       (position) => {
         setCurrentSpeed(position.coords.speed)
         setCurrentHeading(position.coords.heading)
+        setRawGpsData({
+          speed: position.coords.speed,
+          heading: position.coords.heading,
+          accuracy: position.coords.accuracy
+        })
       },
       (error) => {
         console.error("Error getting geolocation:", error)
@@ -172,6 +184,11 @@ export default function App() {
 
     const handleOrientation = (e: DeviceOrientationEvent) => {
       currentTiltRef.current = e.gamma ?? 0
+      setRawOrientationData({
+        alpha: e.alpha,
+        beta: e.beta,
+        gamma: e.gamma
+      })
     }
 
     window.addEventListener('deviceorientation', handleOrientation)
@@ -219,6 +236,11 @@ export default function App() {
         <button className="p-4 border-2 border-current rounded" onClick={() => setUnit(u => u === 'knots' ? 'kph' : u === 'kph' ? 'mph' : 'knots')}>
           Unit: {unit.toUpperCase()}
         </button>
+        {DEBUG && (
+          <button className="p-4 border-2 border-current rounded" onClick={() => setDebugMode(d => !d)}>
+            Debug: {debugMode ? 'ON' : 'OFF'}
+          </button>
+        )}
         <button className="bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border-2 border-current rounded-xl font-bold py-4 px-6" onClick={handleStart}>
           START
         </button>
@@ -254,4 +276,114 @@ export default function App() {
       </button>
     </div>
   )
+
+  if (DEBUG && debugMode) {
+    const polarSize = 250
+    const center = polarSize / 2
+    const maxRadius = polarSize / 2 - 20
+    const maxSpeed = Math.max(15, ...Array.from(polarRef.current.values()).map(e => convertSpeed(e.maxSpeed, unit)))
+
+    const polarEntries = Array.from(polarRef.current.entries()).map(([heading, entry]) => {
+      const angle = (heading - 90) * Math.PI / 180
+      const radius = (convertSpeed(entry.maxSpeed, unit) / maxSpeed) * maxRadius
+      return {
+        x: center + radius * Math.cos(angle),
+        y: center + radius * Math.sin(angle),
+        speed: convertSpeed(entry.maxSpeed, unit).toFixed(1),
+        heading,
+        tiltDirection: entry.tiltDirection,
+        tiltAngle: entry.tiltAngle
+      }
+    })
+
+    return (
+      <div className="flex flex-col h-screen w-screen p-2 gap-2">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-bold">DEBUG MODE</h2>
+          <button className="px-4 py-2 border-2 border-current rounded" onClick={() => setDebugMode(false)}>Exit Debug</button>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-2">
+          <div className="border-2 border-current p-2 rounded">
+            <h3 className="font-bold text-sm mb-1">Raw GPS Data</h3>
+            <div className="text-xs font-mono">
+              <div>Speed (m/s): {rawGpsData.speed?.toFixed(2) ?? 'N/A'}</div>
+              <div>Heading (°): {rawGpsData.heading?.toFixed(1) ?? 'N/A'}</div>
+              <div>Accuracy (m): {rawGpsData.accuracy?.toFixed(1) ?? 'N/A'}</div>
+            </div>
+          </div>
+          <div className="border-2 border-current p-2 rounded">
+            <h3 className="font-bold text-sm mb-1">Raw Orientation Data</h3>
+            <div className="text-xs font-mono">
+              <div>Alpha (°): {rawOrientationData.alpha?.toFixed(1) ?? 'N/A'}</div>
+              <div>Beta (°): {rawOrientationData.beta?.toFixed(1) ?? 'N/A'}</div>
+              <div>Gamma (°): {rawOrientationData.gamma?.toFixed(1) ?? 'N/A'}</div>
+              <div className="mt-1">Tilt: {currentTiltRef.current.toFixed(1)}°</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 border-2 border-current p-2 rounded flex flex-col items-center">
+          <h3 className="font-bold text-sm mb-1">Polar (colored by tilt)</h3>
+          <div className="flex gap-4 text-xs mb-2">
+            <span className="text-red-500">Left</span>
+            <span className="text-green-500">Center</span>
+            <span className="text-blue-500">Right</span>
+          </div>
+          <svg width={polarSize} height={polarSize} className="border border-current rounded-full">
+            <circle cx={center} cy={center} r={maxRadius} fill="none" stroke="currentColor" strokeWidth="1" />
+            {[0, 90, 180, 270].map(deg => {
+              const angle = (deg - 90) * Math.PI / 180
+              return (
+                <line
+                  key={deg}
+                  x1={center}
+                  y1={center}
+                  x2={center + maxRadius * Math.cos(angle)}
+                  y2={center + maxRadius * Math.sin(angle)}
+                  stroke="currentColor"
+                  strokeWidth="1"
+                  opacity="0.3"
+                />
+              )
+            })}
+            {[0, 5, 10, 15].map(speed => (
+              <circle
+                key={speed}
+                cx={center}
+                cy={center}
+                r={(speed / maxSpeed) * maxRadius}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1"
+                opacity="0.3"
+              />
+            ))}
+            {polarEntries.map((entry, i) => (
+              <circle
+                key={i}
+                cx={entry.x}
+                cy={entry.y}
+                r={6}
+                fill={entry.tiltDirection === 'left' ? '#ef4444' : entry.tiltDirection === 'right' ? '#3b82f6' : '#22c55e'}
+              />
+            ))}
+            {polarEntries.map((entry, i) => (
+              <text
+                key={`t-${i}`}
+                x={entry.x}
+                y={entry.y - 8}
+                fontSize="8"
+                textAnchor="middle"
+                fill="currentColor"
+              >
+                {entry.heading}°
+              </text>
+            ))}
+          </svg>
+          <div className="text-xs mt-1">Entries: {polarEntries.length} | Max Speed: {maxSpeed.toFixed(1)} {unit}</div>
+        </div>
+      </div>
+    )
+  }
 }
