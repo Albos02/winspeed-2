@@ -9,7 +9,6 @@ type Layout = '2s' | '4q' | '4s' | '6q' | '6s'
 type FontSize = -5 | -2 | -1 | 0 | 1 | 2 | 5
 type Unit = 'knots' | 'kph' | 'mph'
 type TiltDirection = 'left' | 'right' | 'center'
-type AppMode = 'normal' | 'debug'
 
 interface PolarEntry {
   maxSpeed: number
