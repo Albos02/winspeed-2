@@ -62,6 +62,26 @@ function calculateVmg(speed: number, heading: number, windDirection: number): nu
   return speed * Math.cos(twa * Math.PI / 180)
 }
 
+function calculateTiltFromGps(headingHistory: { heading: number; time: number }[]): number | null {
+  if (headingHistory.length < 3) return null
+  const recent = headingHistory.slice(-5)
+  if (recent.length < 2) return null
+  
+  const timeDiff = (recent[recent.length - 1].time - recent[0].time) / 1000
+  if (timeDiff < 0.5) return null
+
+  let totalRotation = 0
+  for (let i = 1; i < recent.length; i++) {
+    let diff = recent[i].heading - recent[i - 1].heading
+    if (diff > 180) diff -= 360
+    else if (diff < -180) diff += 360
+    totalRotation += diff
+  }
+
+  const rate = totalRotation / timeDiff
+  return Math.max(-45, Math.min(45, rate * 30))
+}
+
 export default function App() {
   const [theme, setTheme] = useState<Theme>('light')
   const [layout, setLayout] = useState<Layout>('2s')
@@ -73,6 +93,7 @@ export default function App() {
   const [currentSpeed, setCurrentSpeed] = useState<number | null>(null)
   const [currentHeading, setCurrentHeading] = useState<number | null>(null)
   const currentTiltRef = useRef<number>(0)
+  const headingHistoryRef = useRef<{ heading: number; time: number }[]>([])
   const [windDirection, setWindDirection] = useState<number | null>(null)
   const [unit, setUnit] = useState<Unit>('knots')
   const [wakeLock, setWakeLock] = useState<WakeLockSentinel | null>(null)
@@ -121,11 +142,18 @@ export default function App() {
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
+        const now = Date.now()
+        const newHeading = position.coords.heading
+        if (newHeading !== null && currentHeading !== null) {
+          headingHistoryRef.current.push({ heading: newHeading, time: now })
+          const cutoff = now - 5000
+          headingHistoryRef.current = headingHistoryRef.current.filter(h => h.time > cutoff)
+        }
         setCurrentSpeed(position.coords.speed)
-        setCurrentHeading(position.coords.heading)
+        setCurrentHeading(newHeading)
         setRawGpsData({
           speed: position.coords.speed,
-          heading: position.coords.heading,
+          heading: newHeading,
           accuracy: position.coords.accuracy
         })
       },
@@ -197,7 +225,11 @@ export default function App() {
       if (currentSpeed === null || currentHeading === null || currentSpeed < 1) return
 
       const heading = normalizeHeading(currentHeading)
-      const tilt = currentTiltRef.current
+      let tilt = currentTiltRef.current
+      if (Math.abs(tilt) < 1) {
+        const gpsTilt = calculateTiltFromGps(headingHistoryRef.current)
+        if (gpsTilt !== null) tilt = gpsTilt
+      }
       const tiltDirection: TiltDirection = tilt < -5 ? 'left' : tilt > 5 ? 'right' : 'center'
 
       const existing = polarRef.current.get(heading)
@@ -291,7 +323,7 @@ export default function App() {
         <div className="absolute bottom-0 left-0 right-0 flex justify-between items-end p-1 text-xs bg-[var(--bg-color)]/80">
           <div className="font-mono">
             <div>GPS: {rawGpsData.speed?.toFixed(1) ?? 'N/A'}m/s {rawGpsData.heading?.toFixed(0) ?? 'N/A'}° acc{rawGpsData.accuracy?.toFixed(0) ?? 'N/A'}</div>
-            <div>Ori: {rawOrientationData.alpha !== null ? `α${rawOrientationData.alpha?.toFixed(0)} β${rawOrientationData.beta?.toFixed(0)} γ${rawOrientationData.gamma?.toFixed(0)}` : 'no sensor'}</div>
+            <div>Ori: {rawOrientationData.alpha !== null ? `α${rawOrientationData.alpha?.toFixed(0)} β${rawOrientationData.beta?.toFixed(0)} γ${rawOrientationData.gamma?.toFixed(0)}` : `no sensor tilt:${currentTiltRef.current.toFixed(0)}`}</div>
           </div>
           <svg width={60} height={60} viewBox="0 0 60 60" className="border border-current rounded-full">
             <circle cx={30} cy={30} r={28} fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.3" />
