@@ -149,6 +149,7 @@ export default function App() {
   const [wakeLock, setWakeLock] = useState<WakeLockSentinel | null>(null)
   const polarRef = useRef<Map<number, PolarEntry>>(new Map())
   const gpsPointsRef = useRef<GpsPoint[]>([])
+  const recordingRef = useRef(false)
 
   const convertSpeed = (speedInMps: number, targetUnit: Unit) => {
     switch (targetUnit) {
@@ -178,6 +179,7 @@ export default function App() {
       }
     }
     setRecording(true)
+    recordingRef.current = true
   }
 
   useEffect(() => {
@@ -195,14 +197,16 @@ export default function App() {
       (position) => {
         const now = Date.now()
         const newHeading = position.coords.heading
-        if (newHeading !== null && currentHeading !== null) {
-          headingHistoryRef.current.push({ heading: newHeading, time: now })
-          const cutoff = now - 5000
-          headingHistoryRef.current = headingHistoryRef.current.filter(h => h.time > cutoff)
+        if (newHeading !== null) {
+          if (currentHeading !== null && recordingRef.current) {
+            headingHistoryRef.current.push({ heading: newHeading, time: now })
+            const cutoff = now - 5000
+            headingHistoryRef.current = headingHistoryRef.current.filter(h => h.time > cutoff)
+          }
         }
         setCurrentSpeed(position.coords.speed)
         setCurrentHeading(newHeading)
-        if (recording && position.coords.latitude && position.coords.longitude) {
+        if (recordingRef.current && position.coords.latitude && position.coords.longitude) {
           gpsPointsRef.current.push({
             time: now,
             lat: position.coords.latitude,
@@ -378,7 +382,15 @@ export default function App() {
           <span className="font-black leading-none" style={{ fontSize: `calc(${baseSize + fontSize * 0.5}rem)` }}>{value}</span>
         </div>
       ))}
-      <button className="absolute top-0 right-0 w-10 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current rounded-bl font-bold text-xs" onDoubleClick={() => setRecording(false)}>
+      <button className="absolute top-0 right-0 w-10 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current rounded-bl font-bold text-xs" onDoubleClick={() => {
+          if (gpsPointsRef.current.length > 0) {
+            if (confirm(`Download GPX with ${gpsPointsRef.current.length} points?`)) {
+              downloadGpx(gpsPointsRef.current)
+            }
+          }
+          recordingRef.current = false
+          setRecording(false)
+        }}>
         EXIT
       </button>
       {gpsPointsRef.current.length > 0 && (
