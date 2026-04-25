@@ -26,6 +26,44 @@ interface GpsPoint {
   accuracy: number | null
 }
 
+interface OrientationPoint {
+  time: number
+  alpha: number | null
+  beta: number | null
+  gamma: number | null
+}
+
+interface MotionPoint {
+  time: number
+  ax: number | null
+  ay: number | null
+  az: number | null
+  agx: number | null
+  agy: number | null
+  agz: number | null
+  rx: number | null
+  ry: number | null
+  rz: number | null
+  tilt: number | null
+}
+
+interface SensorPoint {
+  time: number
+  x: number | null
+  y: number | null
+  z: number | null
+}
+
+interface BarometerPoint {
+  time: number
+  pressure: number | null
+}
+
+interface AmbientLightPoint {
+  time: number
+  illuminance: number | null
+}
+
 function normalizeHeading(h: number): number {
   h = h % 360
   if (h < 0) h += 360
@@ -132,6 +170,59 @@ function downloadGpx(points: GpsPoint[]) {
   URL.revokeObjectURL(url)
 }
 
+function downloadJson() {
+  const data = {
+    meta: {
+      startTime: startTimeRef.current > 0 ? new Date(startTimeRef.current).toISOString() : null,
+      endTime: new Date().toISOString(),
+      duration: startTimeRef.current > 0 ? Math.round((Date.now() - startTimeRef.current) / 1000) : 0,
+      device: navigator.userAgent,
+      platform: navigator.platform,
+      screen: {
+        width: window.screen.width,
+        height: window.screen.height,
+        orientation: window.screen.orientation?.type || 'unknown',
+        pixelRatio: window.devicePixelRatio
+      },
+      app: 'winspeed-2'
+    },
+    gps: gpsPointsRef.current,
+    orientation: orientationRef.current,
+    motion: motionRef.current,
+    sensors: {
+      accelerometer: accelerometerRef.current,
+      gyroscope: gyroscopeRef.current,
+      linearAcceleration: linearAccelRef.current,
+      gravity: gravityRef.current,
+      magnetometer: magnetometerRef.current,
+      barometer: barometerRef.current,
+      ambientLight: ambientLightRef.current
+    },
+    polar: Object.fromEntries(polarRef.current.entries()),
+    windDir: windDirection,
+    stats: {
+      gpsPoints: gpsPointsRef.current.length,
+      orientationPoints: orientationRef.current.length,
+      motionPoints: motionRef.current.length,
+      accelerometerPoints: accelerometerRef.current.length,
+      gyroscopePoints: gyroscopeRef.current.length,
+      magnetometerPoints: magnetometerRef.current.length,
+      barometerPoints: barometerRef.current.length,
+      maxSpeed: gpsPointsRef.current.length > 0 ? Math.max(...gpsPointsRef.current.map(p => p.speed ?? 0)) : null,
+      avgSpeed: gpsPointsRef.current.length > 0 ? gpsPointsRef.current.reduce((a, p) => a + (p.speed ?? 0), 0) / gpsPointsRef.current.length : null
+    }
+  }
+
+  const json = JSON.stringify(data, null, 2)
+  const blob = new Blob([json], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `winspeed-data-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function App() {
   const [theme, setTheme] = useState<Theme>('light')
   const [layout, setLayout] = useState<Layout>('2s')
@@ -149,7 +240,17 @@ export default function App() {
   const [wakeLock, setWakeLock] = useState<WakeLockSentinel | null>(null)
   const polarRef = useRef<Map<number, PolarEntry>>(new Map())
   const gpsPointsRef = useRef<GpsPoint[]>([])
+  const orientationRef = useRef<OrientationPoint[]>([])
+  const motionRef = useRef<MotionPoint[]>([])
+  const accelerometerRef = useRef<SensorPoint[]>([])
+  const gyroscopeRef = useRef<SensorPoint[]>([])
+  const linearAccelRef = useRef<SensorPoint[]>([])
+  const gravityRef = useRef<SensorPoint[]>([])
+  const magnetometerRef = useRef<SensorPoint[]>([])
+  const barometerRef = useRef<BarometerPoint[]>([])
+  const ambientLightRef = useRef<AmbientLightPoint[]>([])
   const recordingRef = useRef(false)
+  const startTimeRef = useRef<number>(0)
 
   const convertSpeed = (speedInMps: number, targetUnit: Unit) => {
     switch (targetUnit) {
@@ -178,8 +279,101 @@ export default function App() {
         return
       }
     }
+
+    const motionPerm = (DeviceMotionEvent as any).requestPermission
+    if (motionPerm) {
+      try {
+        await motionPerm()
+      } catch (err) {
+        console.error("Motion permission error:", err)
+      }
+    }
+
+    try {
+      const permResult = await navigator.permissions?.query({ name: 'accelerometer' as PermissionName })
+      console.log("Accelerometer permission:", permResult?.state)
+    } catch (err) {
+      console.error("Permission query error:", err)
+    }
+
+    startGenericSensors()
     setRecording(true)
     recordingRef.current = true
+    startTimeRef.current = Date.now()
+  }
+
+  const startGenericSensors = async () => {
+    const freq = { frequency: 60 }
+
+    try {
+      const accel = new (window as any).Accelerometer(freq)
+      accel.addEventListener('reading', () => {
+        if (recordingRef.current) {
+          accelerometerRef.current.push({ time: Date.now(), x: accel.x, y: accel.y, z: accel.z })
+        }
+      })
+      accel.start()
+    } catch (e) { console.error("Accelerometer not available:", e) }
+
+    try {
+      const gyro = new (window as any).Gyroscope(freq)
+      gyro.addEventListener('reading', () => {
+        if (recordingRef.current) {
+          gyroscopeRef.current.push({ time: Date.now(), x: gyro.x, y: gyro.y, z: gyro.z })
+        }
+      })
+      gyro.start()
+    } catch (e) { console.error("Gyroscope not available:", e) }
+
+    try {
+      const linAccel = new (window as any).LinearAccelerationSensor(freq)
+      linAccel.addEventListener('reading', () => {
+        if (recordingRef.current) {
+          linearAccelRef.current.push({ time: Date.now(), x: linAccel.x, y: linAccel.y, z: linAccel.z })
+        }
+      })
+      linAccel.start()
+    } catch (e) { console.error("LinearAcceleration not available:", e) }
+
+    try {
+      const grav = new (window as any).GravitySensor(freq)
+      grav.addEventListener('reading', () => {
+        if (recordingRef.current) {
+          gravityRef.current.push({ time: Date.now(), x: grav.x, y: grav.y, z: grav.z })
+        }
+      })
+      grav.start()
+    } catch (e) { console.error("Gravity not available:", e) }
+
+    try {
+      const mag = new (window as any).Magnetometer(freq)
+      mag.addEventListener('reading', () => {
+        if (recordingRef.current) {
+          magnetometerRef.current.push({ time: Date.now(), x: mag.x, y: mag.y, z: mag.z })
+        }
+      })
+      mag.start()
+    } catch (e) { console.error("Magnetometer not available:", e) }
+
+    try {
+      const baro = new (window as any).BarometricSensor({ frequency: 10 })
+      baro.addEventListener('reading', () => {
+        if (recordingRef.current) {
+          barometerRef.current.push({ time: Date.now(), pressure: baro.pressure })
+        }
+      })
+      baro.start()
+    } catch (e) { console.error("BarometricSensor not available:", e) }
+
+    try {
+      const light = new (window as any).AmbientLightSensor({ frequency: 10 })
+      light.addEventListener('reading', () => {
+        if (recordingRef.current) {
+          ambientLightRef.current.push({ time: Date.now(), illuminance: light.illuminance })
+        }
+      })
+      light.start()
+    } catch (e) { console.error("AmbientLightSensor not available:", e) }
   }
 
   useEffect(() => {
@@ -276,15 +470,51 @@ export default function App() {
     if (!recording) return
 
     const handleOrientation = (e: DeviceOrientationEvent) => {
+      const now = Date.now()
       currentTiltRef.current = e.gamma ?? 0
       setRawOrientationData({
         alpha: e.alpha,
         beta: e.beta,
         gamma: e.gamma
       })
+      if (recordingRef.current) {
+        orientationRef.current.push({
+          time: now,
+          alpha: e.alpha,
+          beta: e.beta,
+          gamma: e.gamma
+        })
+      }
+    }
+
+    const handleMotion = (e: DeviceMotionEvent) => {
+      const now = Date.now()
+      const acc = e.acceleration
+      const accGrav = e.accelerationIncludingGravity
+      const rot = e.rotationRate
+      if (recordingRef.current) {
+        let gpsTilt: number | null = null
+        if (Math.abs(currentTiltRef.current) < 1) {
+          gpsTilt = calculateTiltFromGps(headingHistoryRef.current)
+        }
+        motionRef.current.push({
+          time: now,
+          ax: acc?.x ?? null,
+          ay: acc?.y ?? null,
+          az: acc?.z ?? null,
+          agx: accGrav?.x ?? null,
+          agy: accGrav?.y ?? null,
+          agz: accGrav?.z ?? null,
+          rx: rot?.alpha ?? null,
+          ry: rot?.beta ?? null,
+          rz: rot?.gamma ?? null,
+          tilt: gpsTilt ?? currentTiltRef.current
+        })
+      }
     }
 
     window.addEventListener('deviceorientation', handleOrientation)
+    window.addEventListener('devicemotion', handleMotion)
     
     // Periodic calculation and recording
     const interval = setInterval(() => {
@@ -313,6 +543,7 @@ export default function App() {
 
     return () => {
       window.removeEventListener('deviceorientation', handleOrientation)
+      window.removeEventListener('devicemotion', handleMotion)
       clearInterval(interval)
     }
   }, [recording, currentSpeed, currentHeading])
@@ -384,8 +615,9 @@ export default function App() {
       ))}
       <button className="absolute top-0 right-0 w-10 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current rounded-bl font-bold text-xs" onDoubleClick={() => {
           if (gpsPointsRef.current.length > 0) {
-            if (confirm(`Download GPX with ${gpsPointsRef.current.length} points?`)) {
+            if (confirm(`Download GPX and JSON with ${gpsPointsRef.current.length} GPS points?`)) {
               downloadGpx(gpsPointsRef.current)
+              downloadJson()
             }
           }
           recordingRef.current = false
@@ -396,6 +628,11 @@ export default function App() {
       {gpsPointsRef.current.length > 0 && (
         <button className="absolute top-0 right-10 w-12 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current rounded-bl font-bold text-xs" onClick={() => downloadGpx(gpsPointsRef.current)}>
           GPX
+        </button>
+      )}
+      {gpsPointsRef.current.length > 0 && (
+        <button className="absolute top-0 right-24 w-12 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current rounded-bl font-bold text-xs" onClick={() => downloadJson()}>
+          JSON
         </button>
       )}
       {DEBUG && (
