@@ -170,12 +170,26 @@ function downloadGpx(points: GpsPoint[]) {
   URL.revokeObjectURL(url)
 }
 
-function downloadJson() {
+function downloadJson(
+  startTime: number,
+  gpsPoints: GpsPoint[],
+  orientationPoints: OrientationPoint[],
+  motionPoints: MotionPoint[],
+  accelerometerPoints: SensorPoint[],
+  gyroscopePoints: SensorPoint[],
+  linearAccelPoints: SensorPoint[],
+  gravityPoints: SensorPoint[],
+  magnetometerPoints: SensorPoint[],
+  barometerPoints: BarometerPoint[],
+  ambientLightPoints: AmbientLightPoint[],
+  polarEntries: Map<number, PolarEntry>,
+  wDir: number | null
+) {
   const data = {
     meta: {
-      startTime: startTimeRef.current > 0 ? new Date(startTimeRef.current).toISOString() : null,
+      startTime: startTime > 0 ? new Date(startTime).toISOString() : null,
       endTime: new Date().toISOString(),
-      duration: startTimeRef.current > 0 ? Math.round((Date.now() - startTimeRef.current) / 1000) : 0,
+      duration: startTime > 0 ? Math.round((Date.now() - startTime) / 1000) : 0,
       device: navigator.userAgent,
       platform: navigator.platform,
       screen: {
@@ -186,30 +200,30 @@ function downloadJson() {
       },
       app: 'winspeed-2'
     },
-    gps: gpsPointsRef.current,
-    orientation: orientationRef.current,
-    motion: motionRef.current,
+    gps: gpsPoints,
+    orientation: orientationPoints,
+    motion: motionPoints,
     sensors: {
-      accelerometer: accelerometerRef.current,
-      gyroscope: gyroscopeRef.current,
-      linearAcceleration: linearAccelRef.current,
-      gravity: gravityRef.current,
-      magnetometer: magnetometerRef.current,
-      barometer: barometerRef.current,
-      ambientLight: ambientLightRef.current
+      accelerometer: accelerometerPoints,
+      gyroscope: gyroscopePoints,
+      linearAcceleration: linearAccelPoints,
+      gravity: gravityPoints,
+      magnetometer: magnetometerPoints,
+      barometer: barometerPoints,
+      ambientLight: ambientLightPoints
     },
-    polar: Object.fromEntries(polarRef.current.entries()),
-    windDir: windDirection,
+    polar: Object.fromEntries(polarEntries.entries()),
+    windDir: wDir,
     stats: {
-      gpsPoints: gpsPointsRef.current.length,
-      orientationPoints: orientationRef.current.length,
-      motionPoints: motionRef.current.length,
-      accelerometerPoints: accelerometerRef.current.length,
-      gyroscopePoints: gyroscopeRef.current.length,
-      magnetometerPoints: magnetometerRef.current.length,
-      barometerPoints: barometerRef.current.length,
-      maxSpeed: gpsPointsRef.current.length > 0 ? Math.max(...gpsPointsRef.current.map(p => p.speed ?? 0)) : null,
-      avgSpeed: gpsPointsRef.current.length > 0 ? gpsPointsRef.current.reduce((a, p) => a + (p.speed ?? 0), 0) / gpsPointsRef.current.length : null
+      gpsPoints: gpsPoints.length,
+      orientationPoints: orientationPoints.length,
+      motionPoints: motionPoints.length,
+      accelerometerPoints: accelerometerPoints.length,
+      gyroscopePoints: gyroscopePoints.length,
+      magnetometerPoints: magnetometerPoints.length,
+      barometerPoints: barometerPoints.length,
+      maxSpeed: gpsPoints.length > 0 ? Math.max(...gpsPoints.map((p: GpsPoint) => p.speed ?? 0)) : null,
+      avgSpeed: gpsPoints.length > 0 ? gpsPoints.reduce((a: number, p: GpsPoint) => a + (p.speed ?? 0), 0) / gpsPoints.length : null
     }
   }
 
@@ -617,7 +631,21 @@ export default function App() {
           if (gpsPointsRef.current.length > 0) {
             if (confirm(`Download GPX and JSON with ${gpsPointsRef.current.length} GPS points?`)) {
               downloadGpx(gpsPointsRef.current)
-              downloadJson()
+              downloadJson(
+                startTimeRef.current,
+                gpsPointsRef.current,
+                orientationRef.current,
+                motionRef.current,
+                accelerometerRef.current,
+                gyroscopeRef.current,
+                linearAccelRef.current,
+                gravityRef.current,
+                magnetometerRef.current,
+                barometerRef.current,
+                ambientLightRef.current,
+                polarRef.current,
+                windDirection
+              )
             }
           }
           recordingRef.current = false
@@ -631,7 +659,21 @@ export default function App() {
         </button>
       )}
       {gpsPointsRef.current.length > 0 && (
-        <button className="absolute top-0 right-24 w-12 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current rounded-bl font-bold text-xs" onClick={() => downloadJson()}>
+        <button className="absolute top-0 right-24 w-12 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current rounded-bl font-bold text-xs" onClick={() => downloadJson(
+          startTimeRef.current,
+          gpsPointsRef.current,
+          orientationRef.current,
+          motionRef.current,
+          accelerometerRef.current,
+          gyroscopeRef.current,
+          linearAccelRef.current,
+          gravityRef.current,
+          magnetometerRef.current,
+          barometerRef.current,
+          ambientLightRef.current,
+          polarRef.current,
+          windDirection
+        )}>
           JSON
         </button>
       )}
