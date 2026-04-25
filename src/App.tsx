@@ -16,6 +16,16 @@ interface PolarEntry {
   tiltAngle: number
 }
 
+interface GpsPoint {
+  time: number
+  lat: number
+  lon: number
+  speed: number | null
+  heading: number | null
+  altitude: number | null
+  accuracy: number | null
+}
+
 function normalizeHeading(h: number): number {
   h = h % 360
   if (h < 0) h += 360
@@ -82,6 +92,46 @@ function calculateTiltFromGps(headingHistory: { heading: number; time: number }[
   return Math.max(-45, Math.min(45, rate * 30))
 }
 
+function formatGpx(points: GpsPoint[]): string {
+  const header = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="winspeed-2"
+  xmlns="http://www.topografix.com/GPX/1/1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+  <metadata>
+    <name>winspeed-{points.length > 0 ? new Date(points[0].time).toISOString() : 'session'}</name>
+    <time>${new Date().toISOString()}</time>
+  </metadata>
+  <trk>
+    <name>Sailing Session</name>
+    <trkseg>
+`
+  const trackPoints = points.map(p => `      <trkpt lat="${p.lat.toFixed(6)}" lon="${p.lon.toFixed(6)}">
+        <ele>${p.altitude?.toFixed(1) ?? '0'}</ele>
+        <time>${new Date(p.time).toISOString()}</time>
+        <extensions>
+          <speed>${p.speed ?? 0}</speed>
+          <heading>${p.heading ?? 0}</heading>
+          <accuracy>${p.accuracy ?? 0}</accuracy>
+        </extensions>
+      </trkpt>`).join('\n')
+  const footer = `    </trkseg>
+  </trk>
+</gpx>`
+  return header + trackPoints + '\n' + footer
+}
+
+function downloadGpx(points: GpsPoint[]) {
+  const gpx = formatGpx(points)
+  const blob = new Blob([gpx], { type: 'application/gpx+xml' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `winspeed-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.gpx`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function App() {
   const [theme, setTheme] = useState<Theme>('light')
   const [layout, setLayout] = useState<Layout>('2s')
@@ -98,6 +148,7 @@ export default function App() {
   const [unit, setUnit] = useState<Unit>('knots')
   const [wakeLock, setWakeLock] = useState<WakeLockSentinel | null>(null)
   const polarRef = useRef<Map<number, PolarEntry>>(new Map())
+  const gpsPointsRef = useRef<GpsPoint[]>([])
 
   const convertSpeed = (speedInMps: number, targetUnit: Unit) => {
     switch (targetUnit) {
@@ -151,6 +202,17 @@ export default function App() {
         }
         setCurrentSpeed(position.coords.speed)
         setCurrentHeading(newHeading)
+        if (recording && position.coords.latitude && position.coords.longitude) {
+          gpsPointsRef.current.push({
+            time: now,
+            lat: position.coords.latitude,
+            lon: position.coords.longitude,
+            speed: position.coords.speed,
+            heading: newHeading,
+            altitude: position.coords.altitude,
+            accuracy: position.coords.accuracy
+          })
+        }
         setRawGpsData({
           speed: position.coords.speed,
           heading: newHeading,
@@ -319,6 +381,11 @@ export default function App() {
       <button className="absolute top-0 right-0 w-10 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current rounded-bl font-bold text-xs" onDoubleClick={() => setRecording(false)}>
         EXIT
       </button>
+      {gpsPointsRef.current.length > 0 && (
+        <button className="absolute top-0 right-10 w-12 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current rounded-bl font-bold text-xs" onClick={() => downloadGpx(gpsPointsRef.current)}>
+          GPX
+        </button>
+      )}
       {DEBUG && (
         <div className="absolute bottom-0 left-0 right-0 flex justify-between items-end p-1 text-xs bg-[var(--bg-color)]/80">
           <div className="font-mono">
