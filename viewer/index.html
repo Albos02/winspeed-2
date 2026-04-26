@@ -30,7 +30,6 @@
     .sensor-stats h3 { margin-bottom: 12px; font-size: 14px; }
     .sensor-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 13px; color: #666; }
     .track-view { text-align: center; }
-    .track-canvas { max-width: 100%; border: 1px solid #ddd; border-radius: 8px; }
     .track-info { margin-top: 12px; font-size: 13px; color: #666; }
     .polar-view { text-align: center; }
     .polar-svg { max-width: 300px; margin: 0 auto; }
@@ -48,10 +47,13 @@
     .time-labels { display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-top: 4px; }
     .speed-select { padding: 8px; border: 1px solid #ddd; border-radius: 6px; background: white; }
     .time-display { font-size: 13px; color: #666; min-width: 100px; }
+    .map-container { height: 400px; border-radius: 8px; overflow: hidden; }
   </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
   <div id="root"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -95,7 +97,6 @@
       const [selectedTab, setSelectedTab] = useState('overview');
       
       const fileInputRef = useRef(null);
-      const canvasRef = useRef(null);
       const animationRef = useRef(null);
       const lastTimeRef = useRef(0);
 
@@ -153,73 +154,10 @@
       }, [isPlaying, playbackSpeed, sessionData, totalDuration]);
 
       useEffect(() => {
-        if (!sessionData || selectedTab !== 'track' || !canvasRef.current) return;
-        
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        const gps = sessionData.gps;
-        if (gps.length === 0) return;
-
-        const padding = 40;
-        const width = canvas.width - padding * 2;
-        const height = canvas.height - padding * 2;
-
-        const lats = gps.map(p => p.lat);
-        const lons = gps.map(p => p.lon);
-        const minLat = Math.min(...lats);
-        const maxLat = Math.max(...lats);
-        const minLon = Math.min(...lons);
-        const maxLon = Math.max(...lons);
-
-        const latRange = maxLat - minLat || 0.001;
-        const lonRange = maxLon - minLon || 0.001;
-        
-        const scaleX = width / (lonRange * 111320 * Math.cos((minLat + maxLat) / 2 * Math.PI / 180));
-        const scaleY = height / (latRange * 111320);
-        const scale = Math.min(scaleX, scaleY);
-
-        const centerX = width / 2;
-        const centerY = height / 2;
-
-        const project = (lat, lon) => ({
-          x: padding + centerX + (lon - (minLon + maxLon) / 2) * scale * 111320 * Math.cos(lat * Math.PI / 180),
-          y: padding + centerY - (lat - (minLat + maxLat) / 2) * scale * 111320
-        });
-
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = '#888';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(padding, padding, width, height);
-
-        ctx.beginPath();
-        ctx.strokeStyle = '#3b82f6';
-        ctx.lineWidth = 2;
-        let first = true;
-        for (const point of gps) {
-          const pos = project(point.lat, point.lon);
-          if (first) { ctx.moveTo(pos.x, pos.y); first = false; }
-          else { ctx.lineTo(pos.x, pos.y); }
+        if (selectedTab === 'track' && currentGps && window.trackMarker) {
+          window.trackMarker.setLatLng([currentGps.lat, currentGps.lon]);
         }
-        ctx.stroke();
-
-        if (gps.length > 0) {
-          const firstPos = project(gps[0].lat, gps[0].lon);
-          ctx.fillStyle = '#22c55e';
-          ctx.beginPath();
-          ctx.arc(firstPos.x, firstPos.y, 6, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        if (currentGps) {
-          const pos = project(currentGps.lat, currentGps.lon);
-          ctx.fillStyle = '#ef4444';
-          ctx.beginPath();
-          ctx.arc(pos.x, pos.y, 8, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }, [sessionData, currentTime, selectedTab, currentGps]);
+      }, [selectedTab, currentGps]);
 
       if (!sessionData) {
         return (
@@ -320,7 +258,24 @@
 
             {selectedTab === 'track' && (
               <div className="track-view">
-                <canvas ref={canvasRef} width={600} height={400} className="track-canvas" />
+                <div ref={el => {
+                  if (el && sessionData?.gps?.length > 0 && !el._leaflet_id) {
+                    const map = L.map(el).setView([sessionData.gps[0].lat, sessionData.gps[0].lon], 14);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                      attribution: '&copy; OpenStreetMap'
+                    }).addTo(map);
+                    
+                    const latlngs = sessionData.gps.map(p => [p.lat, p.lon]);
+                    const polyline = L.polyline(latlngs, {color: '#3b82f6', weight: 3}).addTo(map);
+                    map.fitBounds(polyline.getBounds(), {padding: [20, 20]});
+                    
+                    window.trackMap = map;
+                    window.trackPolyline = polyline;
+                    window.trackMarker = L.circleMarker([sessionData.gps[0].lat, sessionData.gps[0].lon], {
+                      color: '#ef4444', fillColor: '#ef4444', fillOpacity: 1, radius: 8
+                    }).addTo(map);
+                  }
+                }} className="map-container" id="track-map" />
                 <div className="track-info">
                   Lat: {currentGps?.lat?.toFixed(5) ?? '---'}, Lon: {currentGps?.lon?.toFixed(5) ?? '---'}
                 </div>
