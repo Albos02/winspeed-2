@@ -553,7 +553,7 @@ export default function App() {
   const [recording, setRecording] = useState(false)
   const [debugMode, setDebugMode] = useState(false)
   const [page, setPage] = useState<Page>('settings')
-  const [sessions, setSessions] = useState<SavedSession[]>([])
+  const [sessions, setSessions] = useState<SavedSession[]>(() => loadSessions())
   const [rawGpsData, setRawGpsData] = useState<{ speed: number | null; heading: number | null; accuracy: number | null }>({ speed: null, heading: null, accuracy: null })
   const [rawOrientationData, setRawOrientationData] = useState<{ alpha: number | null; beta: number | null; gamma: number | null }>({ alpha: null, beta: null, gamma: null })
   const [currentSpeed, setCurrentSpeed] = useState<number | null>(null)
@@ -917,7 +917,10 @@ export default function App() {
         sessions={sessions}
         unit={unit}
         onBack={() => setPage('settings')}
-        onDelete={deleteSession}
+        onDelete={(id) => {
+          deleteSession(id)
+          setSessions(loadSessions())
+        }}
       />
     )
   }
@@ -978,22 +981,23 @@ export default function App() {
                 polarRef.current,
                 windDirection
               )
-              saveSession({
-                startTime: startTimeRef.current,
-                gpsPoints: gpsPointsRef.current,
-                orientationPoints: orientationRef.current,
-                motionPoints: motionRef.current,
-                accelerometerPoints: accelerometerRef.current,
-                gyroscopePoints: gyroscopeRef.current,
-                linearAccelPoints: linearAccelRef.current,
-                gravityPoints: gravityRef.current,
-                magnetometerPoints: magnetometerRef.current,
-                barometerPoints: barometerRef.current,
-                ambientLightPoints: ambientLightRef.current,
-                polarEntries: polarRef.current,
-                windDirection
-              }, true)
             }
+            saveSession({
+              startTime: startTimeRef.current,
+              gpsPoints: gpsPointsRef.current,
+              orientationPoints: orientationRef.current,
+              motionPoints: motionRef.current,
+              accelerometerPoints: accelerometerRef.current,
+              gyroscopePoints: gyroscopeRef.current,
+              linearAccelPoints: linearAccelRef.current,
+              gravityPoints: gravityRef.current,
+              magnetometerPoints: magnetometerRef.current,
+              barometerPoints: barometerRef.current,
+              ambientLightPoints: ambientLightRef.current,
+              polarEntries: polarRef.current,
+              windDirection
+            }, true)
+            setSessions(loadSessions())
           }
           recordingRef.current = false
           setRecording(false)
