@@ -1023,7 +1023,7 @@ export default function App() {
     </div>
   )
 
-  if (DEBUG && debugMode) {
+  if (debugMode) {
     return (
       <div className="flex flex-col h-screen w-screen p-2 gap-2">
         <div className="flex justify-between items-center">
