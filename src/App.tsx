@@ -1,9 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import './index.css'
 
-// DEBUG
-const DEBUG = true
-
 type Theme = 'light' | 'dark'
 type Layout = '2s' | '4q' | '4s' | '6q' | '6s'
 type FontSize = -5 | -2 | -1 | 0 | 1 | 2 | 5
@@ -896,7 +893,7 @@ export default function App() {
         <button className="p-4 border-2 border-current rounded" onClick={() => setUnit(u => u === 'knots' ? 'kph' : u === 'kph' ? 'mph' : 'knots')}>
           Unit: {unit.toUpperCase()}
         </button>
-        {DEBUG && (
+        {debugMode && (
           <button className="p-4 border-2 border-current rounded" onClick={() => setDebugMode(d => !d)}>
             Debug: {debugMode ? 'ON' : 'OFF'}
           </button>
@@ -1005,7 +1002,7 @@ export default function App() {
         }}>
         EXIT
       </button>
-      {DEBUG && (
+      {debugMode && (
         <div className="absolute bottom-0 left-0 right-0 flex justify-between items-end p-1 text-xs bg-[var(--bg-color)]/80">
           <div className="font-mono">
             <div>GPS: {rawGpsData.speed?.toFixed(1) ?? 'N/A'}m/s {rawGpsData.heading?.toFixed(0) ?? 'N/A'}° acc{rawGpsData.accuracy?.toFixed(0) ?? 'N/A'}</div>
