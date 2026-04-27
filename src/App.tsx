@@ -74,6 +74,21 @@ interface SavedSession {
   gpsPointsCount: number
   windDirection: number | null
   polarEntriesCount: number
+  data?: {
+    gps: GpsPoint[]
+    orientation: OrientationPoint[]
+    motion: MotionPoint[]
+    sensors: {
+      accelerometer: SensorPoint[]
+      gyroscope: SensorPoint[]
+      linearAcceleration: SensorPoint[]
+      gravity: SensorPoint[]
+      magnetometer: SensorPoint[]
+      barometer: BarometerPoint[]
+      ambientLight: AmbientLightPoint[]
+    }
+    polar: Record<number, PolarEntry>
+  }
 }
 
 function normalizeHeading(h: number): number {
@@ -182,7 +197,63 @@ function loadSessions(): SavedSession[] {
   }
 }
 
-function saveSession(session: SavedSession) {
+function saveSession(
+  sessionData: {
+    startTime: number
+    gpsPoints: GpsPoint[]
+    orientationPoints: OrientationPoint[]
+    motionPoints: MotionPoint[]
+    accelerometerPoints: SensorPoint[]
+    gyroscopePoints: SensorPoint[]
+    linearAccelPoints: SensorPoint[]
+    gravityPoints: SensorPoint[]
+    magnetometerPoints: SensorPoint[]
+    barometerPoints: BarometerPoint[]
+    ambientLightPoints: AmbientLightPoint[]
+    polarEntries: Map<number, PolarEntry>
+    windDirection: number | null
+  },
+  includeData: boolean = false
+) {
+  const endTime = Date.now()
+  const duration = Math.round((endTime - sessionData.startTime) / 1000)
+  const maxSpeed = sessionData.gpsPoints.length > 0 
+    ? Math.max(...sessionData.gpsPoints.map((p: GpsPoint) => p.speed ?? 0)) 
+    : null
+  const avgSpeed = sessionData.gpsPoints.length > 0 
+    ? sessionData.gpsPoints.reduce((a: number, p: GpsPoint) => a + (p.speed ?? 0), 0) / sessionData.gpsPoints.length 
+    : null
+
+  const session: SavedSession = {
+    id: `${sessionData.startTime}`,
+    startTime: sessionData.startTime,
+    endTime,
+    duration,
+    maxSpeed,
+    avgSpeed,
+    gpsPointsCount: sessionData.gpsPoints.length,
+    windDirection: sessionData.windDirection,
+    polarEntriesCount: sessionData.polarEntries.size,
+  }
+
+  if (includeData) {
+    session.data = {
+      gps: sessionData.gpsPoints,
+      orientation: sessionData.orientationPoints,
+      motion: sessionData.motionPoints,
+      sensors: {
+        accelerometer: sessionData.accelerometerPoints,
+        gyroscope: sessionData.gyroscopePoints,
+        linearAcceleration: sessionData.linearAccelPoints,
+        gravity: sessionData.gravityPoints,
+        magnetometer: sessionData.magnetometerPoints,
+        barometer: sessionData.barometerPoints,
+        ambientLight: sessionData.ambientLightPoints,
+      },
+      polar: Object.fromEntries(sessionData.polarEntries.entries()),
+    }
+  }
+
   const sessions = loadSessions()
   sessions.unshift(session)
   localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions))
@@ -272,6 +343,208 @@ function downloadJson(
 }
 
 type Page = 'settings' | 'recording' | 'sessions'
+
+function SessionsView({ 
+  sessions, 
+  unit, 
+  onBack, 
+  onDelete 
+}: { 
+  sessions: SavedSession[]
+  unit: Unit
+  onBack: () => void
+  onDelete: (id: string) => void
+}) {
+  const convertSpeed = (speedInMps: number) => {
+    switch (unit) {
+      case 'knots': return speedInMps * 1.94384
+      case 'kph': return speedInMps * 3.6
+      case 'mph': return speedInMps * 2.23694
+      default: return speedInMps * 1.94384
+    }
+  }
+
+  const formatDuration = (seconds: number) => {
+    const h = Math.floor(seconds / 3600)
+    const m = Math.floor((seconds % 3600) / 60)
+    const s = seconds % 60
+    return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`
+  }
+
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const downloadSessionGpx = (session: SavedSession) => {
+    if (!session.data?.gps) return
+    const header = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="winspeed-2"
+  xmlns="http://www.topografix.com/GPX/1/1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+  <metadata>
+    <name>winspeed-session-${session.id}</name>
+    <time>${new Date(session.startTime).toISOString()}</time>
+  </metadata>
+  <trk>
+    <name>Sailing Session</name>
+    <trkseg>
+`
+    const trackPoints = session.data.gps.map(p => `      <trkpt lat="${p.lat.toFixed(6)}" lon="${p.lon.toFixed(6)}">
+        <ele>${p.altitude?.toFixed(1) ?? '0'}</ele>
+        <time>${new Date(p.time).toISOString()}</time>
+        <extensions>
+          <speed>${p.speed ?? 0}</speed>
+          <heading>${p.heading ?? 0}</heading>
+          <accuracy>${p.accuracy ?? 0}</accuracy>
+        </extensions>
+      </trkpt>`).join('\n')
+    const footer = `    </trkseg>
+  </trk>
+</gpx>`
+    const gpx = header + trackPoints + '\n' + footer
+    const blob = new Blob([gpx], { type: 'application/gpx+xml' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `winspeed-${session.id}.gpx`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const downloadSessionJson = (session: SavedSession) => {
+    if (!session.data) return
+    const data = {
+      meta: {
+        startTime: new Date(session.startTime).toISOString(),
+        endTime: new Date(session.endTime).toISOString(),
+        duration: session.duration,
+        device: navigator.userAgent,
+        platform: navigator.platform,
+        app: 'winspeed-2'
+      },
+      gps: session.data.gps,
+      orientation: session.data.orientation,
+      motion: session.data.motion,
+      sensors: session.data.sensors,
+      polar: session.data.polar,
+      windDir: session.windDirection,
+      stats: {
+        gpsPoints: session.gpsPointsCount,
+        maxSpeed: session.maxSpeed,
+        avgSpeed: session.avgSpeed
+      }
+    }
+    const json = JSON.stringify(data, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `winspeed-data-${session.id}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const shareSession = async (session: SavedSession) => {
+    const text = `Sailing Session ${formatDate(session.startTime)}
+Duration: ${formatDuration(session.duration)}
+Max Speed: ${session.maxSpeed !== null ? convertSpeed(session.maxSpeed).toFixed(1) + ' ' + unit : 'N/A'}
+Avg Speed: ${session.avgSpeed !== null ? convertSpeed(session.avgSpeed).toFixed(1) + ' ' + unit : 'N/A'}
+GPS Points: ${session.gpsPointsCount}
+Wind: ${session.windDirection !== null ? session.windDirection + '°' : 'N/A'}`
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ text })
+      } catch (e) {
+        if ((e as Error).name !== 'AbortError') {
+          console.error('Share failed:', e)
+        }
+      }
+    } else {
+      await navigator.clipboard.writeText(text)
+      alert('Session info copied to clipboard!')
+    }
+  }
+
+  return (
+    <div className="flex flex-col h-screen p-4 gap-4">
+      <div className="flex items-center justify-between">
+        <button className="p-2 border-2 border-current rounded" onClick={onBack}>
+          Back
+        </button>
+        <h1 className="text-2xl font-bold">Sessions</h1>
+        <div className="w-16" />
+      </div>
+
+      {sessions.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center text-lg text-gray-500">
+          No saved sessions
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto flex flex-col gap-3">
+          {sessions.map(session => (
+            <div key={session.id} className="border-2 border-current p-3 rounded-lg">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <div className="font-bold">{formatDate(session.startTime)}</div>
+                  <div className="text-sm opacity-70">{formatDuration(session.duration)}</div>
+                </div>
+                <button 
+                  className="text-red-500 text-sm p-1"
+                  onClick={() => {
+                    if (confirm('Delete this session?')) {
+                      onDelete(session.id)
+                    }
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                <div>Max: {session.maxSpeed !== null ? convertSpeed(session.maxSpeed).toFixed(1) + ' ' + unit : 'N/A'}</div>
+                <div>Avg: {session.avgSpeed !== null ? convertSpeed(session.avgSpeed).toFixed(1) + ' ' + unit : 'N/A'}</div>
+                <div>GPS: {session.gpsPointsCount} pts</div>
+                <div>Wind: {session.windDirection !== null ? session.windDirection + '°' : 'N/A'}</div>
+              </div>
+
+              <div className="flex gap-2">
+                {session.data && (
+                  <>
+                    <button 
+                      className="flex-1 py-2 border border-current rounded text-sm"
+                      onClick={() => downloadSessionGpx(session)}
+                    >
+                      GPX
+                    </button>
+                    <button 
+                      className="flex-1 py-2 border border-current rounded text-sm"
+                      onClick={() => downloadSessionJson(session)}
+                    >
+                      Data
+                    </button>
+                  </>
+                )}
+                <button 
+                  className="flex-1 py-2 border border-current rounded text-sm"
+                  onClick={() => shareSession(session)}
+                >
+                  Share
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function App() {
   const [theme, setTheme] = useState<Theme>('light')
@@ -705,10 +978,26 @@ export default function App() {
                 polarRef.current,
                 windDirection
               )
+              saveSession({
+                startTime: startTimeRef.current,
+                gpsPoints: gpsPointsRef.current,
+                orientationPoints: orientationRef.current,
+                motionPoints: motionRef.current,
+                accelerometerPoints: accelerometerRef.current,
+                gyroscopePoints: gyroscopeRef.current,
+                linearAccelPoints: linearAccelRef.current,
+                gravityPoints: gravityRef.current,
+                magnetometerPoints: magnetometerRef.current,
+                barometerPoints: barometerRef.current,
+                ambientLightPoints: ambientLightRef.current,
+                polarEntries: polarRef.current,
+                windDirection
+              }, true)
             }
           }
           recordingRef.current = false
           setRecording(false)
+          setPage('settings')
         }}>
         EXIT
       </button>
