@@ -1022,15 +1022,6 @@ export default function App() {
             polarRef.current,
             windDirection
           )}>
-            DATA
-          </button>
-        )}
-        {gpsPointsRef.current.length > 0 && (
-          <button className="w-12 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current font-bold text-xs" onClick={() => downloadGpx(gpsPointsRef.current)}>
-            GPX
-          </button>
-        )}
-      </div>
       {DEBUG && (
         <div className="absolute bottom-0 left-0 right-0 flex justify-between items-end p-1 text-xs bg-[var(--bg-color)]/80">
           <div className="font-mono">
