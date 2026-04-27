@@ -64,6 +64,18 @@ interface AmbientLightPoint {
   illuminance: number | null
 }
 
+interface SavedSession {
+  id: string
+  startTime: number
+  endTime: number
+  duration: number
+  maxSpeed: number | null
+  avgSpeed: number | null
+  gpsPointsCount: number
+  windDirection: number | null
+  polarEntriesCount: number
+}
+
 function normalizeHeading(h: number): number {
   h = h % 360
   if (h < 0) h += 360
@@ -159,6 +171,28 @@ function formatGpx(points: GpsPoint[]): string {
   return header + trackPoints + '\n' + footer
 }
 
+const SESSIONS_KEY = 'winspeed-sessions'
+
+function loadSessions(): SavedSession[] {
+  try {
+    const stored = localStorage.getItem(SESSIONS_KEY)
+    return stored ? JSON.parse(stored) : []
+  } catch {
+    return []
+  }
+}
+
+function saveSession(session: SavedSession) {
+  const sessions = loadSessions()
+  sessions.unshift(session)
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions))
+}
+
+function deleteSession(id: string) {
+  const sessions = loadSessions().filter(s => s.id !== id)
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions))
+}
+
 function downloadGpx(points: GpsPoint[]) {
   const gpx = formatGpx(points)
   const blob = new Blob([gpx], { type: 'application/gpx+xml' })
@@ -237,12 +271,16 @@ function downloadJson(
   URL.revokeObjectURL(url)
 }
 
+type Page = 'settings' | 'recording' | 'sessions'
+
 export default function App() {
   const [theme, setTheme] = useState<Theme>('light')
   const [layout, setLayout] = useState<Layout>('2s')
   const [fontSize, setFontSize] = useState<FontSize>(0)
   const [recording, setRecording] = useState(false)
   const [debugMode, setDebugMode] = useState(false)
+  const [page, setPage] = useState<Page>('settings')
+  const [sessions, setSessions] = useState<SavedSession[]>([])
   const [rawGpsData, setRawGpsData] = useState<{ speed: number | null; heading: number | null; accuracy: number | null }>({ speed: null, heading: null, accuracy: null })
   const [rawOrientationData, setRawOrientationData] = useState<{ alpha: number | null; beta: number | null; gamma: number | null }>({ alpha: null, beta: null, gamma: null })
   const [currentSpeed, setCurrentSpeed] = useState<number | null>(null)
@@ -314,6 +352,7 @@ export default function App() {
     setRecording(true)
     recordingRef.current = true
     startTimeRef.current = Date.now()
+    setPage('recording')
   }
 
   const startGenericSensors = async () => {
@@ -394,6 +433,12 @@ export default function App() {
     if (theme === 'dark') document.documentElement.classList.add('theme-dark')
     else document.documentElement.classList.remove('theme-dark')
   }, [theme])
+
+  useEffect(() => {
+    if (page === 'sessions') {
+      setSessions(loadSessions())
+    }
+  }, [page])
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -562,7 +607,7 @@ export default function App() {
     }
   }, [recording, currentSpeed, currentHeading])
 
-  if (!recording) {
+  if (page === 'settings') {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-6 p-4 text-2xl">
         <h1 className="text-4xl font-bold">Settings</h1>
@@ -583,10 +628,24 @@ export default function App() {
             Debug: {debugMode ? 'ON' : 'OFF'}
           </button>
         )}
+        <button className="p-4 border-2 border-current rounded" onClick={() => setPage('sessions')}>
+          Sessions
+        </button>
         <button className="bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border-2 border-current rounded-xl font-bold py-4 px-6" onClick={handleStart}>
           START
         </button>
       </div>
+    )
+  }
+
+  if (page === 'sessions') {
+    return (
+      <SessionsView
+        sessions={sessions}
+        unit={unit}
+        onBack={() => setPage('settings')}
+        onDelete={deleteSession}
+      />
     )
   }
 
