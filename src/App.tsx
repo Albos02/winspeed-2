@@ -1006,7 +1006,7 @@ export default function App() {
           <span className="font-black leading-none" style={{ fontSize: `calc(${baseSize + fontSize * 0.5}rem)` }}>{value}</span>
         </div>
       ))}
-      <button className="absolute top-0 right-0 w-10 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current rounded-bl font-bold text-xs z-50" onDoubleClick={() => {
+      <button className="absolute top-0 right-0 w-10 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current rounded-bl font-bold text-xs z-50" onClick={() => {
           if (gpsPointsRef.current.length > 0) {
             if (confirm(`Download GPX and JSON with ${gpsPointsRef.current.length} GPS points?`)) {
               downloadGpx(gpsPointsRef.current)
@@ -1025,23 +1025,23 @@ export default function App() {
                 polarRef.current,
                 windDirection
               )
+              saveSession({
+                startTime: startTimeRef.current,
+                gpsPoints: gpsPointsRef.current,
+                orientationPoints: orientationRef.current,
+                motionPoints: motionRef.current,
+                accelerometerPoints: accelerometerRef.current,
+                gyroscopePoints: gyroscopeRef.current,
+                linearAccelPoints: linearAccelRef.current,
+                gravityPoints: gravityRef.current,
+                magnetometerPoints: magnetometerRef.current,
+                barometerPoints: barometerRef.current,
+                ambientLightPoints: ambientLightRef.current,
+                polarEntries: polarRef.current,
+                windDirection
+              }, true)
+              setSessions(loadSessions())
             }
-            saveSession({
-              startTime: startTimeRef.current,
-              gpsPoints: gpsPointsRef.current,
-              orientationPoints: orientationRef.current,
-              motionPoints: motionRef.current,
-              accelerometerPoints: accelerometerRef.current,
-              gyroscopePoints: gyroscopeRef.current,
-              linearAccelPoints: linearAccelRef.current,
-              gravityPoints: gravityRef.current,
-              magnetometerPoints: magnetometerRef.current,
-              barometerPoints: barometerRef.current,
-              ambientLightPoints: ambientLightRef.current,
-              polarEntries: polarRef.current,
-              windDirection
-            }, true)
-            setSessions(loadSessions())
           }
           recordingRef.current = false
           setRecording(false)
