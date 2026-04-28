@@ -1006,7 +1006,7 @@ export default function App() {
           <span className="font-black leading-none" style={{ fontSize: `calc(${baseSize + fontSize * 0.5}rem)` }}>{value}</span>
         </div>
       ))}
-      <button className="absolute top-0 right-0 w-10 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current rounded-bl font-bold text-xs z-50" onClick={() => {
+      <button className="absolute top-0 right-0 w-10 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current rounded-bl font-bold text-xs z-50" onDoubleClick={() => {
           if (gpsPointsRef.current.length > 0) {
             if (confirm(`Download GPX and JSON with ${gpsPointsRef.current.length} GPS points?`)) {
               downloadGpx(gpsPointsRef.current)
