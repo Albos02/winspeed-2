@@ -849,7 +849,18 @@ export default function App() {
 
     const handleOrientation = (e: DeviceOrientationEvent) => {
       const now = Date.now()
-      currentTiltRef.current = e.gamma ?? 0
+      
+      // Calculate device rotation (0, 90, 180, 270)
+      const angle = (window.screen.orientation?.angle ?? 0)
+      
+      let tilt = 0
+      if (angle === 0) tilt = e.gamma ?? 0
+      else if (angle === 90) tilt = e.beta ?? 0
+      else if (angle === 180) tilt = -(e.gamma ?? 0)
+      else if (angle === 270) tilt = -(e.beta ?? 0)
+      
+      currentTiltRef.current = tilt
+      
       setRawOrientationData({
         alpha: e.alpha,
         beta: e.beta,
