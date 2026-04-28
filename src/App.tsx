@@ -982,6 +982,11 @@ export default function App() {
 
   const baseSize = layout === '2s' ? 10 : layout === '4s' ? 8 : layout === '6s' ? 6 : 5
 
+  const twa = currentSpeed !== null && currentHeading !== null && windDirection !== null
+    ? Math.round(Math.abs(currentHeading - windDirection))
+    : null
+  const displayTwa = twa !== null ? `${twa > 180 ? 360 - twa : twa}°` : '---'
+
   const vmg = currentSpeed !== null && currentHeading !== null && windDirection !== null
     ? convertSpeed(calculateVmg(currentSpeed, currentHeading, windDirection), unit).toFixed(1)
     : '0.0'
@@ -989,32 +994,21 @@ export default function App() {
   const data = layout === '2s' 
     ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°']]
     : layout === '4q' || layout === '4s'
-    ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['VMG', vmg], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', windDirection !== null ? `${windDirection.toFixed(0)}°` : '---']]
+    ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['TWA', displayTwa], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', windDirection !== null ? `${windDirection.toFixed(0)}°` : '---']]
     : layout === '6q' || layout === '6s'
-    ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['VMG', vmg], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', windDirection !== null ? `${windDirection.toFixed(0)}°` : '---'], ['Tacking', '2.1'], // speed during last tack
+    ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['TWA', displayTwa], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', windDirection !== null ? `${windDirection.toFixed(0)}°` : '---'], ['Tacking', '2.1'], // speed during last tack
     ['Polar', '95%']]
     : [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°']]
-
-  const polarEntries = Array.from(polarRef.current.entries()).map(([heading, entry]) => {
-    const angle = (heading - 90) * Math.PI / 180
-    const speed = convertSpeed(entry.maxSpeed, unit)
-    const maxSpeed = Math.max(15, ...Array.from(polarRef.current.values()).map(e => convertSpeed(e.maxSpeed, unit)))
-    const r = (speed / maxSpeed)
-    return {
-      rx: r * Math.cos(angle),
-      ry: r * Math.sin(angle),
-      speed,
-      heading,
-      tiltDirection: entry.tiltDirection
-    }
-  })
 
   return (
     <div className={`relative grid h-screen w-screen p-1 gap-1 ${layout === '2s' ? 'grid-rows-2' : layout === '4q' ? 'grid-cols-2 grid-rows-2' : layout === '4s' ? 'grid-rows-4' : layout === '6q' ? 'grid-cols-2 grid-rows-3' : 'grid-rows-6'}`}>
       {data.map(([label, value], i) => (
-        <div key={i} className="flex flex-col items-center justify-center h-full w-full border-2 border-current p-1 overflow-hidden">
+        <div key={i} className="relative flex flex-col items-center justify-center h-full w-full border-2 border-current p-1 overflow-hidden">
           <span className="text-[clamp(1rem,5vw,2rem)] font-bold uppercase tracking-wider">{label}</span>
           <span className="font-black leading-none" style={{ fontSize: `calc(${baseSize + fontSize * 0.5}rem)` }}>{value}</span>
+          {label === 'TWA' && windDirection !== null && (
+            <span className="absolute bottom-1 right-2 text-xs font-bold uppercase">WDir: {windDirection}°</span>
+          )}
         </div>
       ))}
       <button className="absolute top-0 right-0 w-10 h-10 bg-[var(--inverted-bg-color)] text-[var(--inverted-text-color)] border border-current rounded-bl font-bold text-xs z-50" onClick={() => {
