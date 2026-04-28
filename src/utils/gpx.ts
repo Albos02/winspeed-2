@@ -1,4 +1,4 @@
-import { GpsPoint } from './types';
+import type { GpsPoint } from '../types';
 
 export function formatGpx(points: GpsPoint[]): string {
   const header = `<?xml version="1.0" encoding="UTF-8"?>

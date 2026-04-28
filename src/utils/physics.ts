@@ -1,4 +1,4 @@
-import { PolarEntry, GpsPoint } from '../types';
+import type { PolarEntry } from '../types';
 
 export function normalizeHeading(h: number): number {
   h = h % 360;
