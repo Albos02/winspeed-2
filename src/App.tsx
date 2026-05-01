@@ -128,12 +128,6 @@ function calculateWindDirection(polar: Map<number, PolarEntry>): number | null {
   return bestAxis.score > 30 ? bestAxis.wind : null
 }
 
-function calculateVmg(speed: number, heading: number, windDirection: number): number {
-  const angle = Math.abs(heading - windDirection)
-  const twa = Math.min(angle, 360 - angle)
-  return speed * Math.cos(twa * Math.PI / 180)
-}
-
 function calculateTiltFromGps(headingHistory: { heading: number; time: number }[]): number | null {
   if (headingHistory.length < 3) return null
   const recent = headingHistory.slice(-5)
@@ -987,10 +981,6 @@ export default function App() {
     : null
   const displayTwa = twa !== null ? `${twa > 180 ? 360 - twa : twa}°` : '---'
 
-  const vmg = currentSpeed !== null && currentHeading !== null && windDirection !== null
-    ? convertSpeed(calculateVmg(currentSpeed, currentHeading, windDirection), unit).toFixed(1)
-    : '0.0'
-
   const data = layout === '2s' 
     ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°']]
     : layout === '4q' || layout === '4s'
@@ -999,6 +989,20 @@ export default function App() {
     ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['TWA', displayTwa], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', windDirection !== null ? `${windDirection.toFixed(0)}°` : '---'], ['Tacking', '2.1'], // speed during last tack
     ['Polar', '95%']]
     : [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°']]
+
+  const polarEntries = Array.from(polarRef.current.entries()).map(([heading, entry]) => {
+    const angle = (heading - 90) * Math.PI / 180
+    const speed = convertSpeed(entry.maxSpeed, unit)
+    const maxSpeed = Math.max(15, ...Array.from(polarRef.current.values()).map(e => convertSpeed(e.maxSpeed, unit)))
+    const r = (speed / maxSpeed)
+    return {
+      rx: r * Math.cos(angle),
+      ry: r * Math.sin(angle),
+      speed,
+      heading,
+      tiltDirection: entry.tiltDirection
+    }
+  })
 
   return (
     <div className={`relative grid h-screen w-screen p-1 gap-1 ${layout === '2s' ? 'grid-rows-2' : layout === '4q' ? 'grid-cols-2 grid-rows-2' : layout === '4s' ? 'grid-rows-4' : layout === '6q' ? 'grid-cols-2 grid-rows-3' : 'grid-rows-6'}`}>
