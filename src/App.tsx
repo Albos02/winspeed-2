@@ -926,12 +926,16 @@ export default function App() {
     ? convertSpeed(calculateVmg(currentSpeed, currentHeading, windDirection), unit).toFixed(1)
     : '0.0'
 
+  const twa = currentSpeed !== null && currentHeading !== null && windDirection !== null
+    ? Math.round(Math.min(Math.abs(currentHeading - windDirection), 360 - Math.abs(currentHeading - windDirection)))
+    : null
+
   const data = layout === '2s' 
     ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°']]
     : layout === '4q' || layout === '4s'
-    ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['VMG', vmg], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', windDirection !== null ? `${windDirection.toFixed(0)}°` : '---']]
+    ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['VMG', vmg], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['TWA', twa !== null ? `${twa}°` : '---']]
     : layout === '6q' || layout === '6s'
-    ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['VMG', vmg], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['Wind', windDirection !== null ? `${windDirection.toFixed(0)}°` : '---'], ['Tacking', '2.1'], // speed during last tack
+    ? [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['VMG', vmg], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°'], ['TWA', twa !== null ? `${twa}°` : '---'], ['Tacking', '2.1'],
     ['Polar', '95%']]
     : [['Speed', currentSpeed !== null ? convertSpeed(currentSpeed, unit).toFixed(1) : '0.0'], ['Heading', currentHeading !== null ? `${currentHeading.toFixed(0)}°` : '0°']]
 
@@ -951,7 +955,11 @@ export default function App() {
 
   return (
     <div className={`relative grid h-screen w-screen p-1 gap-1 ${layout === '2s' ? 'grid-rows-2' : layout === '4q' ? 'grid-cols-2 grid-rows-2' : layout === '4s' ? 'grid-rows-4' : layout === '6q' ? 'grid-cols-2 grid-rows-3' : 'grid-rows-6'}`}>
-      {data.map(([label, value], i) => (
+      {windDirection !== null && (
+        <div className="absolute top-1 left-1 text-xs font-bold z-50">
+          WDir: {windDirection}°
+        </div>
+      )}
         <div key={i} className="flex flex-col items-center justify-center h-full w-full border-2 border-current p-1 overflow-hidden">
           <span className="text-[clamp(1rem,5vw,2rem)] font-bold uppercase tracking-wider">{label}</span>
           <span className="font-black leading-none" style={{ fontSize: `calc(${baseSize + fontSize * 0.5}rem)` }}>{value}</span>
