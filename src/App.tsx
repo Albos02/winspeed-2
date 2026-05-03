@@ -960,6 +960,7 @@ export default function App() {
           WDir: {windDirection}°
         </div>
       )}
+      {data.map(([label, value], i) => (
         <div key={i} className="flex flex-col items-center justify-center h-full w-full border-2 border-current p-1 overflow-hidden">
           <span className="text-[clamp(1rem,5vw,2rem)] font-bold uppercase tracking-wider">{label}</span>
           <span className="font-black leading-none" style={{ fontSize: `calc(${baseSize + fontSize * 0.5}rem)` }}>{value}</span>
