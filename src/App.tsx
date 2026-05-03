@@ -742,6 +742,10 @@ export default function App() {
   }, [theme])
 
   useEffect(() => {
+    setSessions(loadSessions())
+  }, [])
+
+  useEffect(() => {
     if (page === 'sessions') {
       setSessions(loadSessions())
     }
