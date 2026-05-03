@@ -178,6 +178,7 @@ function formatGpx(points: GpsPoint[]): string {
 }
 
 const SESSIONS_KEY = 'winspeed-sessions'
+const TEMP_SESSION_KEY = 'winspeed-temp-session'
 
 function loadSessions(): SavedSession[] {
   try {
@@ -186,6 +187,27 @@ function loadSessions(): SavedSession[] {
   } catch {
     return []
   }
+}
+
+function saveTempSession(sessionData: any) {
+  localStorage.setItem(TEMP_SESSION_KEY, JSON.stringify({
+    ...sessionData,
+    polarEntries: Array.from(sessionData.polarEntries.entries())
+  }))
+}
+
+function loadTempSession(): any | null {
+  const stored = localStorage.getItem(TEMP_SESSION_KEY)
+  if (!stored) return null
+  const data = JSON.parse(stored)
+  return {
+    ...data,
+    polarEntries: new Map(data.polarEntries)
+  }
+}
+
+function clearTempSession() {
+  localStorage.removeItem(TEMP_SESSION_KEY)
 }
 
 function saveSession(
@@ -582,6 +604,27 @@ export default function App() {
   }
 
   const handleStart = async () => {
+    const temp = loadTempSession()
+    if (temp) {
+      if (confirm('Found a previous unsaved session. Load it?')) {
+        startTimeRef.current = temp.startTime
+        gpsPointsRef.current = temp.gpsPoints
+        orientationRef.current = temp.orientationPoints
+        motionRef.current = temp.motionPoints
+        accelerometerRef.current = temp.accelerometerPoints
+        gyroscopeRef.current = temp.gyroscopePoints
+        linearAccelRef.current = temp.linearAccelPoints
+        gravityRef.current = temp.gravityPoints
+        magnetometerRef.current = temp.magnetometerPoints
+        barometerRef.current = temp.barometerPoints
+        ambientLightRef.current = temp.ambientLightPoints
+        polarRef.current = temp.polarEntries
+        setWindDirection(temp.windDirection)
+      } else {
+        clearTempSession()
+      }
+    }
+
     const reqPerm = (DeviceOrientationEvent as any).requestPermission
     if (reqPerm) {
       try {
@@ -826,6 +869,7 @@ export default function App() {
               polarEntries: polarRef.current,
               windDirection
             }, true)
+            clearTempSession()
             setSessions(loadSessions())
           }
         }
@@ -901,6 +945,23 @@ export default function App() {
     
     // Periodic calculation and recording
     const interval = setInterval(() => {
+      // Save temp state
+      saveTempSession({
+        startTime: startTimeRef.current,
+        gpsPoints: gpsPointsRef.current,
+        orientationPoints: orientationRef.current,
+        motionPoints: motionRef.current,
+        accelerometerPoints: accelerometerRef.current,
+        gyroscopePoints: gyroscopeRef.current,
+        linearAccelPoints: linearAccelRef.current,
+        gravityPoints: gravityRef.current,
+        magnetometerPoints: magnetometerRef.current,
+        barometerPoints: barometerRef.current,
+        ambientLightPoints: ambientLightRef.current,
+        polarEntries: polarRef.current,
+        windDirection
+      })
+
       if (currentSpeed === null || currentHeading === null || currentSpeed < 1) return
 
       const heading = normalizeHeading(currentHeading)
@@ -922,7 +983,7 @@ export default function App() {
 
       const wind = calculateWindDirection(polarRef.current)
       setWindDirection(wind)
-    }, 1000)
+    }, 30000)
 
     return () => {
       window.removeEventListener('deviceorientation', handleOrientation)
@@ -1049,6 +1110,7 @@ export default function App() {
                 polarEntries: polarRef.current,
                 windDirection
               }, true)
+              clearTempSession()
               setSessions(loadSessions())
             }
           }
